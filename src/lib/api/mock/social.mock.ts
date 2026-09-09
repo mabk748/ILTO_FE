@@ -1,0 +1,101 @@
+import type { Contact, NetworkingGoal, FollowUpPrompt } from "../types.ts";
+
+export const mockContacts: Contact[] = [
+  {
+    id: "c1",
+    name: "Alex Chen",
+    email: "alex@example.com",
+    phone: null,
+    relationship: "professional",
+    status: "active",
+    last_contact: new Date(Date.now() - 7 * 86400000).toISOString(),
+    next_followup: new Date(Date.now() + 7 * 86400000).toISOString(),
+    notes: "Backend engineer at Stripe, met at PyCon",
+    tags: ["python", "fintech"],
+  },
+  {
+    id: "c2",
+    name: "Sarah Müller",
+    email: null,
+    phone: "+49-...",
+    relationship: "mentor",
+    status: "active",
+    last_contact: new Date(Date.now() - 14 * 86400000).toISOString(),
+    next_followup: new Date(Date.now() + 16 * 86400000).toISOString(),
+    notes: "Senior SRE, helping with infra architecture",
+    tags: ["devops", "mentor"],
+  },
+  {
+    id: "c3",
+    name: "Jordan Lee",
+    email: "jordan@example.com",
+    phone: null,
+    relationship: "personal",
+    status: "dormant",
+    last_contact: new Date(Date.now() - 45 * 86400000).toISOString(),
+    next_followup: new Date(Date.now() - 5 * 86400000).toISOString(),
+    notes: "Old colleague, need to catch up",
+    tags: ["personal"],
+  },
+  {
+    id: "c4",
+    name: "Priya Sharma",
+    email: "priya@example.com",
+    phone: null,
+    relationship: "professional",
+    status: "active",
+    last_contact: new Date(Date.now() - 3 * 86400000).toISOString(),
+    next_followup: new Date(Date.now() + 27 * 86400000).toISOString(),
+    notes: "Product manager, potential collaborator",
+    tags: ["pm", "collaboration"],
+  },
+];
+
+export const mockNetworkingGoals: NetworkingGoal[] = [
+  {
+    id: "ng1",
+    title: "Connect with 3 backend engineers",
+    target_contacts: 3,
+    current_contacts: 2,
+    due_date: "2025-09-30T00:00:00Z",
+    status: "active",
+  },
+  {
+    id: "ng2",
+    title: "Find a cloud architecture mentor",
+    target_contacts: 1,
+    current_contacts: 0,
+    due_date: "2025-10-31T00:00:00Z",
+    status: "active",
+  },
+];
+
+export const mockFollowUps: FollowUpPrompt[] = [
+  {
+    id: "fu1",
+    contact_id: "c3",
+    contact_name: "Jordan Lee",
+    prompt: "Overdue — check in, last contact was 45+ days ago",
+    due_date: new Date(Date.now() - 5 * 86400000).toISOString(),
+    completed: false,
+    priority: "high",
+  },
+  {
+    id: "fu2",
+    contact_id: "c1",
+    contact_name: "Alex Chen",
+    prompt: "Share ILTO project update, ask about their Rust migration",
+    due_date: new Date(Date.now() + 7 * 86400000).toISOString(),
+    completed: false,
+    priority: "medium",
+  },
+  {
+    id: "fu3",
+    contact_id: "c2",
+    contact_name: "Sarah Müller",
+    prompt: "Schedule next mentorship session — v0.1 infra review",
+    due_date: new Date(Date.now() + 16 * 86400000).toISOString(),
+    completed: false,
+    priority: "medium",
+  },
+];
