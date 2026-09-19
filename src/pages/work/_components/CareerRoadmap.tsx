@@ -12,6 +12,7 @@ import {
 import { format, differenceInDays } from "date-fns";
 import { CheckCircle, Circle } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import WorkResourceControls from "./WorkResourceControls.tsx";
 
 interface Props {
   milestones: CareerMilestone[];
@@ -44,6 +45,11 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
           <CardTitle className="text-sm">Career Milestones</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
+          {milestones.length === 0 && (
+            <p className="py-5 text-center text-sm text-muted-foreground">
+              No career milestones yet.
+            </p>
+          )}
           {milestones.map((m, i) => {
             const done = m.completed_at != null;
             const daysLeft = differenceInDays(new Date(m.target_date), now);
@@ -105,9 +111,17 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
       {/* Certifications */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Certifications</CardTitle>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-sm">Certifications</CardTitle>
+            <WorkResourceControls target={{ kind: "certification" }} />
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {certs.length === 0 && (
+            <p className="py-5 text-center text-sm text-muted-foreground">
+              No certifications yet.
+            </p>
+          )}
           {certs.map((c) => {
             const pct =
               c.study_hours_target > 0
@@ -115,6 +129,7 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
                     (c.study_hours_logged / c.study_hours_target) * 100,
                   )
                 : 0;
+            const clampedPct = Math.min(100, Math.max(0, pct));
             return (
               <div key={c.id} className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
@@ -124,20 +139,31 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
                       {c.provider}
                     </p>
                   </div>
-                  <span
-                    className={cn(
-                      "text-[11px] px-2 py-0.5 rounded-full border font-medium shrink-0",
-                      CERT_STATUS_STYLES[c.status],
-                    )}
-                  >
-                    {c.status.replace("_", " ")}
-                  </span>
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <span
+                      className={cn(
+                        "text-[11px] px-2 py-0.5 rounded-full border font-medium shrink-0",
+                        CERT_STATUS_STYLES[c.status],
+                      )}
+                    >
+                      {c.status.replace("_", " ")}
+                    </span>
+                    <WorkResourceControls
+                      target={{ kind: "certification", record: c }}
+                    />
+                  </div>
                 </div>
-                {c.exam_date && (
-                  <p className="text-xs text-muted-foreground">
-                    Exam: {format(new Date(c.exam_date), "MMM d, yyyy")}
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Exam:{" "}
+                  {c.exam_date
+                    ? format(new Date(c.exam_date), "MMM d, yyyy")
+                    : "Not scheduled"}
+                  {" · "}
+                  Expiry:{" "}
+                  {c.expiry_date
+                    ? format(new Date(c.expiry_date), "MMM d, yyyy")
+                    : "Not scheduled"}
+                </p>
                 <div className="space-y-1">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>
@@ -149,7 +175,12 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
                   <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                     <div
                       className="h-full rounded-full bg-primary"
-                      style={{ width: `${pct}%` }}
+                      style={{ width: `${clampedPct}%` }}
+                      role="progressbar"
+                      aria-label={`${c.name} study progress`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={clampedPct}
                     />
                   </div>
                 </div>

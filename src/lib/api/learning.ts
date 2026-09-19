@@ -1,3 +1,7 @@
+import { getArray } from "./resource.ts";
+/** Proposed backend contract: see docs/backend-api.md. */
+import { apiClient, type ApiRequestOptions } from "./client.ts";
+import { encodeId } from "./resource.ts";
 import type {
   LearningRoadmap,
   SkillNode,
@@ -5,92 +9,112 @@ import type {
   ReadingEntry,
 } from "./types.ts";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE ??
-  "https://n8n-pr.mhabproperties.org/webhook/api/v1/learning";
-
-async function getJson<T>(resource: string): Promise<T> {
-  const res = await fetch(`${API_BASE}?resource=${resource}`);
-  if (!res.ok)
-    throw new Error(`GET /learning?resource=${resource} failed: ${res.status}`);
-  return res.json();
+export function getRoadmaps(
+  options: ApiRequestOptions = {},
+): Promise<LearningRoadmap[]> {
+  return getArray<LearningRoadmap>(`/learning/roadmaps`, options);
 }
 
-// GET /api/v1/learning/roadmaps
-export async function getRoadmaps(): Promise<LearningRoadmap[]> {
-  return getJson<LearningRoadmap[]>("learning-roadmap");
+export function getSkills(
+  roadmapId?: string,
+  options: ApiRequestOptions = {},
+): Promise<SkillNode[]> {
+  return getArray<SkillNode>(`/learning/skills`, {
+    ...options,
+    query: { ...options.query, ...{ roadmap_id: roadmapId } },
+  });
 }
 
-// GET /api/v1/learning/roadmaps/:id/skills
-export async function getSkills(roadmapId?: string): Promise<SkillNode[]> {
-  return roadmapId
-    ? getJson<SkillNode[]>(`skill-node&roadmapId=${roadmapId}`)
-    : getJson<SkillNode[]>("skill-node");
+export function getDueCards(
+  options: ApiRequestOptions = {},
+): Promise<SpacedRepetitionCard[]> {
+  return getArray<SpacedRepetitionCard>(`/learning/sr-cards`, {
+    ...options,
+    query: { ...options.query, ...{ due: true } },
+  });
 }
 
-// GET /api/v1/learning/sr-cards?due=true
-export async function getDueCards(): Promise<SpacedRepetitionCard[]> {
-  const now = new Date();
-  const cards = await getJson<SpacedRepetitionCard[]>("spaced-repetition-card");
-  return cards.filter((card) => new Date(card.next_review) <= now);
+export function getAllCards(
+  options: ApiRequestOptions = {},
+): Promise<SpacedRepetitionCard[]> {
+  return getArray<SpacedRepetitionCard>(`/learning/sr-cards`, options);
 }
 
-// GET /api/v1/learning/sr-cards
-export async function getAllCards(): Promise<SpacedRepetitionCard[]> {
-  return getJson<SpacedRepetitionCard[]>("spaced-repetition-card");
+export function getReadingList(
+  options: ApiRequestOptions = {},
+): Promise<ReadingEntry[]> {
+  return getArray<ReadingEntry>(`/learning/reading`, options);
 }
 
-// GET /api/v1/learning/reading
-export async function getReadingList(): Promise<ReadingEntry[]> {
-  return getJson<ReadingEntry[]>("reading-entry");
+export type CreateRoadmapInput = Omit<
+  LearningRoadmap,
+  "id" | "created_at" | "skills_total" | "skills_completed"
+>;
+export type UpdateRoadmapInput = Partial<CreateRoadmapInput>;
+
+export function createRoadmap(
+  input: CreateRoadmapInput,
+  options: ApiRequestOptions = {},
+): Promise<LearningRoadmap> {
+  return apiClient.post<LearningRoadmap>("/learning/roadmaps", input, options);
 }
 
-// TO BE CLEANED: START
-/**
- * Learning Domain API
- *
- * INTEGRATION GUIDE:
- * Base URL: http://your-server:8000/api/v1/learning
- *
- * Spaced repetition uses SM-2 algorithm server-side.
- * Review sessions POST results back, which updates ease_factor and interval_days.
- * Reading progress syncs from Kindle highlights export or manual entry.
-
-
-import type { LearningRoadmap, SkillNode, SpacedRepetitionCard, ReadingEntry } from "./types.ts";
-import { mockRoadmaps, mockSkills, mockSRCards, mockReading } from "./mock/learning.mock.ts";
-
-const delay = (): Promise<void> => new Promise(r => setTimeout(r, 170));
-
-// GET /api/v1/learning/roadmaps
-export async function getRoadmaps(): Promise<LearningRoadmap[]> {
-  await delay();
-  return mockRoadmaps;
+export function updateRoadmap(
+  id: string,
+  input: UpdateRoadmapInput,
+  options: ApiRequestOptions = {},
+): Promise<LearningRoadmap> {
+  return apiClient.patch<LearningRoadmap>(
+    `/learning/roadmaps/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/learning/roadmaps/:id/skills
-export async function getSkills(roadmapId?: string): Promise<SkillNode[]> {
-  await delay();
-  return roadmapId ? mockSkills.filter(s => s.roadmap_id === roadmapId) : mockSkills;
+export function deleteRoadmap(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/learning/roadmaps/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/learning/sr-cards?due=true
-export async function getDueCards(): Promise<SpacedRepetitionCard[]> {
-  await delay();
-  const now = new Date();
-  return mockSRCards.filter(c => new Date(c.next_review) <= now);
+export type CreateReadingEntryInput = Omit<ReadingEntry, "id">;
+export type UpdateReadingEntryInput = Partial<CreateReadingEntryInput>;
+
+export function createReadingEntry(
+  input: CreateReadingEntryInput,
+  options: ApiRequestOptions = {},
+): Promise<ReadingEntry> {
+  return apiClient.post<ReadingEntry>("/learning/reading", input, options);
 }
 
-// GET /api/v1/learning/sr-cards
-export async function getAllCards(): Promise<SpacedRepetitionCard[]> {
-  await delay();
-  return mockSRCards;
+export function updateReadingEntry(
+  id: string,
+  input: UpdateReadingEntryInput,
+  options: ApiRequestOptions = {},
+): Promise<ReadingEntry> {
+  return apiClient.patch<ReadingEntry>(
+    `/learning/reading/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/learning/reading
-export async function getReadingList(): Promise<ReadingEntry[]> {
-  await delay();
-  return mockReading;
+export function deleteReadingEntry(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/learning/reading/${encodeId(id)}`, options);
 }
- */
-// TO BE CLEANED: END
+
+export function reviewCard(
+  id: string,
+  input: { reviewed_at: string },
+  options: ApiRequestOptions = {},
+): Promise<SpacedRepetitionCard> {
+  return apiClient.post<SpacedRepetitionCard>(
+    `/learning/sr-cards/${encodeId(id)}/reviews`,
+    input,
+    options,
+  );
+}

@@ -1,3 +1,8 @@
+import { getArray } from "./resource.ts";
+/** Proposed backend contract: see docs/backend-api.md. */
+import { apiClient, type ApiRequestOptions } from "./client.ts";
+import { encodeId } from "./resource.ts";
+import { ApiError } from "./errors.ts";
 import type {
   BudgetCategory,
   Transaction,
@@ -6,115 +11,139 @@ import type {
   Bill,
 } from "./types.ts";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE ??
-  "https://n8n-pr.mhabproperties.org/webhook/api/v1/finances";
-
-async function getJson<T>(resource: string): Promise<T> {
-  const res = await fetch(`${API_BASE}?resource=${resource}`);
-  if (!res.ok)
-    throw new Error(`GET /finances?resource=${resource} failed: ${res.status}`);
-  return res.json();
+export function getBudgetCategories(
+  options: ApiRequestOptions = {},
+): Promise<BudgetCategory[]> {
+  return getArray<BudgetCategory>(`/finances/budget-categories`, options);
 }
 
-// GET /api/v1/finances/budget-categories
-export async function getBudgetCategories(): Promise<BudgetCategory[]> {
-  return getJson<BudgetCategory[]>("budget-category");
+export function getTransactions(
+  options: ApiRequestOptions = {},
+): Promise<Transaction[]> {
+  return getArray<Transaction>(`/finances/transactions`, options);
 }
 
-// GET /api/v1/finances/transactions?page=1&per_page=20
-export async function getTransactions(): Promise<Transaction[]> {
-  return getJson<Transaction[]>("transaction");
+export function getTrades(
+  options: ApiRequestOptions = {},
+): Promise<TradeEntry[]> {
+  return getArray<TradeEntry>(`/finances/trades`, options);
 }
 
-// GET /api/v1/finances/trades
-export async function getTrades(): Promise<TradeEntry[]> {
-  return getJson<TradeEntry[]>("trade-entry");
-}
-
-// GET /api/v1/finances/net-worth?months=12
-export async function getNetWorthHistory(
+export function getNetWorthHistory(
   months = 12,
+  options: ApiRequestOptions = {},
 ): Promise<NetWorthSnapshot[]> {
-  const networth = await getJson<NetWorthSnapshot[]>("net-worth-snapshot");
-  return networth.slice(-months);
+  if (!Number.isInteger(months) || months < 1 || months > 120) {
+    return Promise.reject(
+      new ApiError(
+        "Net-worth history months must be an integer from 1 to 120.",
+        "configuration",
+      ),
+    );
+  }
+  return getArray<NetWorthSnapshot>(`/finances/net-worth`, {
+    ...options,
+    query: { ...options.query, ...{ months } },
+  });
 }
 
-// GET /api/v1/finances/bills
-export async function getBills(): Promise<Bill[]> {
-  return getJson<Bill[]>("bill");
+export function getBills(options: ApiRequestOptions = {}): Promise<Bill[]> {
+  return getArray<Bill>(`/finances/bills`, options);
 }
 
-// TO BE CLEANED: START
-/*
-// GET /api/v1/appearance/wardrobe
-export async function getWardrobeItems(): Promise<WardrobeItem[]> {
-  return getJson<WardrobeItem[]>("wardrobe-item");
+export type CreateTransactionInput = Omit<Transaction, "id">;
+export type UpdateTransactionInput = Partial<CreateTransactionInput>;
+
+export function createTransaction(
+  input: CreateTransactionInput,
+  options: ApiRequestOptions = {},
+): Promise<Transaction> {
+  return apiClient.post<Transaction>("/finances/transactions", input, options);
 }
 
-// GET /api/v1/appearance/outfits?limit=20
-export async function getOutfitLogs(limit = 20): Promise<OutfitLog[]> {
-  const outfit = await getJson<OutfitLog[]>("outfit-log");
-  return outfit.slice(0, limit);
+export function updateTransaction(
+  id: string,
+  input: UpdateTransactionInput,
+  options: ApiRequestOptions = {},
+): Promise<Transaction> {
+  return apiClient.patch<Transaction>(
+    `/finances/transactions/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/appearance/grooming
-export async function getGroomingRoutines(): Promise<GroomingRoutine[]> {
-  return getJson<GroomingRoutine[]>("grooming-routine");
+export function deleteTransaction(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/finances/transactions/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/appearance/spend
-export async function getAppearanceSpend(): Promise<AppearanceSpend[]> {
-  return getJson<AppearanceSpend[]>("appearance-spend");
-}
-*/
-// TO BE CLEANED: END
+export type CreateBudgetCategoryInput = Omit<
+  BudgetCategory,
+  "id" | "spent_this_month"
+>;
+export type UpdateBudgetCategoryInput = Partial<CreateBudgetCategoryInput>;
 
-// TO BE CLEANED: START
-/**
- * Finances Domain API
- *
- * INTEGRATION GUIDE:
- * Base URL: http://your-server:8000/api/v1/finances
- *
- * Bank transactions sync via open banking APIs (GoCardless/Nordigen).
- * Investment data pulls from broker CSV exports or broker APIs.
- * All amounts stored in EUR with optional currency metadata.
- 
-
-import type { BudgetCategory, Transaction, TradeEntry, NetWorthSnapshot, Bill } from "./types.ts";
-import { mockBudgetCategories, mockTransactions, mockTrades, mockNetWorth, mockBills } from "./mock/finances.mock.ts";
-
-const delay = (): Promise<void> => new Promise(r => setTimeout(r, 160));
-
-// GET /api/v1/finances/budget-categories
-export async function getBudgetCategories(): Promise<BudgetCategory[]> {
-  await delay();
-  return mockBudgetCategories;
+export function createBudgetCategory(
+  input: CreateBudgetCategoryInput,
+  options: ApiRequestOptions = {},
+): Promise<BudgetCategory> {
+  return apiClient.post<BudgetCategory>(
+    "/finances/budget-categories",
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/finances/transactions?page=1&per_page=20
-export async function getTransactions(): Promise<Transaction[]> {
-  await delay();
-  return mockTransactions;
+export function updateBudgetCategory(
+  id: string,
+  input: UpdateBudgetCategoryInput,
+  options: ApiRequestOptions = {},
+): Promise<BudgetCategory> {
+  return apiClient.patch<BudgetCategory>(
+    `/finances/budget-categories/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/finances/trades
-export async function getTrades(): Promise<TradeEntry[]> {
-  await delay();
-  return mockTrades;
+export function deleteBudgetCategory(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(
+    `/finances/budget-categories/${encodeId(id)}`,
+    options,
+  );
 }
 
-// GET /api/v1/finances/net-worth?months=12
-export async function getNetWorthHistory(months = 12): Promise<NetWorthSnapshot[]> {
-  await delay();
-  return mockNetWorth.slice(-months);
+export type CreateBillInput = Omit<Bill, "id">;
+export type UpdateBillInput = Partial<CreateBillInput>;
+
+export function createBill(
+  input: CreateBillInput,
+  options: ApiRequestOptions = {},
+): Promise<Bill> {
+  return apiClient.post<Bill>("/finances/bills", input, options);
 }
 
-// GET /api/v1/finances/bills
-export async function getBills(): Promise<Bill[]> {
-  await delay();
-  return mockBills;
+export function updateBill(
+  id: string,
+  input: UpdateBillInput,
+  options: ApiRequestOptions = {},
+): Promise<Bill> {
+  return apiClient.patch<Bill>(
+    `/finances/bills/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
-*/
-// TO BE CLEANED: END
+
+export function deleteBill(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/finances/bills/${encodeId(id)}`, options);
+}

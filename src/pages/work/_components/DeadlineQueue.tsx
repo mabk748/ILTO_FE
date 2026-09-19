@@ -1,7 +1,13 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { WorkDeadline, Priority } from "@/lib/api/types.ts";
+import { updateDeadline } from "@/lib/api/work.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
+import { Button } from "@/components/ui/button.tsx";
 import { differenceInDays, format } from "date-fns";
 import { cn } from "@/lib/utils.ts";
+import { workWriteError } from "../work-editor.ts";
+import WorkResourceControls from "./WorkResourceControls.tsx";
 
 interface Props {
   deadlines: WorkDeadline[];
@@ -21,64 +27,165 @@ const PRIORITY_ORDER: Record<Priority, number> = {
   low: 3,
 };
 
+const STATUS_STYLES: Record<WorkDeadline["status"], string> = {
+  pending: "bg-muted text-muted-foreground border-border",
+  completed: "bg-green-500/15 text-green-400 border-green-500/30",
+  overdue: "bg-red-500/15 text-red-400 border-red-500/30",
+};
+
+function DeadlineCompletionControl({ deadline }: { deadline: WorkDeadline }) {
+  const queryClient = useQueryClient();
+  const [error, setError] = useState<string | null>(null);
+  const nextStatus = deadline.status === "completed" ? "pending" : "completed";
+  const mutation = useMutation({
+    mutationFn: () => updateDeadline(deadline.id, { status: nextStatus }),
+    retry: false,
+  });
+  const updateStatus = async () => {
+    setError(null);
+    try {
+      await mutation.mutateAsync();
+      await Promise.all(
+        ["work", "dashboard"].map((domain) =>
+          queryClient.invalidateQueries({ queryKey: [domain] }),
+        ),
+      );
+    } catch (reason) {
+      setError(workWriteError(reason));
+    }
+  };
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={mutation.isPending}
+        aria-label={
+          deadline.status === "completed"
+            ? `Reopen deadline: ${deadline.title}`
+            : `Mark deadline completed: ${deadline.title}`
+        }
+        onClick={() => void updateStatus()}
+      >
+        {mutation.isPending
+          ? "Saving…"
+          : deadline.status === "completed"
+            ? "Reopen"
+            : "Mark completed"}
+      </Button>
+      {error && (
+        <p
+          role="alert"
+          className="max-w-64 text-right text-xs text-destructive"
+        >
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function DeadlineQueue({ deadlines }: Props) {
+  // The API returns due-date order; this view intentionally promotes priority,
+  // retaining due date as the deterministic secondary ordering.
   const sorted = [...deadlines].sort((a, b) => {
-    const po = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
-    if (po !== 0) return po;
+    const priority = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
+    if (priority !== 0) return priority;
     return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
   });
-
   const now = new Date();
 
   return (
     <div className="space-y-3">
-      {sorted.map((d) => {
-        const daysLeft = differenceInDays(new Date(d.due_date), now);
-        const isOverdue = daysLeft < 0;
-
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Deadlines</h2>
+          <p className="text-xs text-muted-foreground">
+            Priorities are shown first, then the backend due-date order.
+          </p>
+        </div>
+        <WorkResourceControls target={{ kind: "deadline" }} />
+      </div>
+      {sorted.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No deadlines yet.
+          </CardContent>
+        </Card>
+      )}
+      {sorted.map((deadline) => {
+        const daysLeft = differenceInDays(new Date(deadline.due_date), now);
+        const isOverdue = deadline.status === "overdue";
+        const statusText =
+          deadline.status === "completed"
+            ? "Completed"
+            : deadline.status === "overdue"
+              ? `${Math.abs(daysLeft)}d overdue`
+              : daysLeft > 0
+                ? `${daysLeft}d left`
+                : "Pending";
         return (
-          <Card key={d.id} className={cn(isOverdue && "border-destructive/50")}>
+          <Card
+            key={deadline.id}
+            className={cn(isOverdue && "border-destructive/50")}
+          >
             <CardContent className="pt-3 pb-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium">{d.title}</p>
+                    <p
+                      className={cn(
+                        "text-sm font-medium",
+                        deadline.status === "completed" &&
+                          "text-muted-foreground line-through",
+                      )}
+                    >
+                      {deadline.title}
+                    </p>
                     <span
                       className={cn(
                         "text-[10px] px-1.5 py-0.5 rounded-full border",
-                        PRIORITY_STYLES[d.priority],
+                        PRIORITY_STYLES[deadline.priority],
                       )}
                     >
-                      {d.priority.toUpperCase()}
+                      {deadline.priority.toUpperCase()}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded-full border",
+                        STATUS_STYLES[deadline.status],
+                      )}
+                    >
+                      {deadline.status}
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {d.project_or_context}
+                    {deadline.project_or_context}
                   </p>
-                  {d.notes && (
+                  {deadline.notes && (
                     <p className="text-xs text-muted-foreground italic">
-                      {d.notes}
+                      {deadline.notes}
                     </p>
                   )}
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(d.due_date), "MMM d")}
-                  </p>
-                  <p
-                    className={cn(
-                      "text-xs font-medium",
-                      isOverdue
-                        ? "text-red-400"
-                        : daysLeft <= 3
-                          ? "text-orange-400"
-                          : "text-muted-foreground",
-                    )}
-                  >
-                    {isOverdue
-                      ? `${Math.abs(daysLeft)}d overdue`
-                      : `${daysLeft}d left`}
-                  </p>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">
+                      {format(new Date(deadline.due_date), "MMM d")}
+                    </p>
+                    <p
+                      className={cn(
+                        "text-xs font-medium",
+                        isOverdue ? "text-red-400" : "text-muted-foreground",
+                      )}
+                    >
+                      {statusText}
+                    </p>
+                  </div>
+                  <DeadlineCompletionControl deadline={deadline} />
+                  <WorkResourceControls
+                    target={{ kind: "deadline", record: deadline }}
+                  />
                 </div>
               </div>
             </CardContent>

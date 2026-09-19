@@ -1,4 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import LoadError from "@/components/LoadError.tsx";
 import { Bell, CheckCheck, X, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button.tsx";
@@ -14,10 +16,10 @@ import type {
   Notification,
   NotificationSeverity,
 } from "@/lib/api/notifications.ts";
+import { ApiError } from "@/lib/api/errors.ts";
 import type { DomainName } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
 import { formatDistanceToNow } from "date-fns";
-import { toast } from "sonner";
 
 const DOMAIN_LABELS: Record<DomainName, string> = {
   projects: "Projects",
@@ -66,10 +68,12 @@ function NotificationCard({
   notification,
   onRead,
   onDismiss,
+  pending,
 }: {
   notification: Notification;
-  onRead: (id: string) => Promise<void>;
-  onDismiss: (id: string) => Promise<void>;
+  onRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+  pending: boolean;
 }) {
   const sev = SEVERITY_STYLES[notification.severity];
   const isUnread = notification.status === "unread";
@@ -126,7 +130,6 @@ function NotificationCard({
           <Link
             to={notification.action_url}
             className="inline-flex items-center gap-1 mt-2 text-xs text-primary hover:underline"
-            onClick={() => void onRead(notification.id)}
           >
             View in {DOMAIN_LABELS[notification.domain]}
             <ChevronRight className="h-3 w-3" />
@@ -138,8 +141,9 @@ function NotificationCard({
       <div className="shrink-0 flex flex-col gap-1">
         {isUnread && (
           <button
-            onClick={() => void onRead(notification.id)}
+            onClick={() => onRead(notification.id)}
             className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+            disabled={pending}
             aria-label="Mark notification as read"
           >
             <CheckCheck className="h-3.5 w-3.5" />
@@ -148,6 +152,7 @@ function NotificationCard({
         <button
           onClick={() => void onDismiss(notification.id)}
           className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
+          disabled={pending}
           aria-label="Dismiss notification"
         >
           <X className="h-3.5 w-3.5" />
@@ -157,71 +162,78 @@ function NotificationCard({
   );
 }
 
+type NotificationAction =
+  | { action: "read"; id: string }
+  | { action: "dismiss"; id: string }
+  | { action: "all" };
+
+function notificationWriteError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 404) {
+      return "This notification no longer exists. Refresh and try again.";
+    }
+    if (error.status === 422) {
+      return "The backend only accepts read or dismissed notification statuses.";
+    }
+    if (
+      error.status === 503 ||
+      error.code === "network" ||
+      error.code === "timeout"
+    ) {
+      return "The backend could not confirm this change. Refresh and check the notification state before retrying.";
+    }
+  }
+  return error instanceof Error
+    ? error.message
+    : "Could not update the notification.";
+}
+
 export default function NotificationsPage() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionPending, setActionPending] = useState(false);
+  const queryClient = useQueryClient();
+  const {
+    data = [],
+    error,
+    isPending: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: ({ signal }) => getNotifications({ signal }),
+  });
+  const notifications = data.filter(
+    (notification) => notification.status !== "dismissed",
+  );
   const [filterDomain, setFilterDomain] = useState<DomainName | "all">("all");
   const [filterStatus, setFilterStatus] = useState<"all" | "unread">("all");
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const actions = useMutation({
+    mutationFn: async (input: NotificationAction) => {
+      if (input.action === "all") return markAllRead();
+      if (input.action === "read") return markNotificationRead(input.id);
+      return dismissNotification(input.id);
+    },
+    retry: false,
+  });
+  const actionPending = actions.isPending;
+  const runAction = async (input: NotificationAction) => {
+    setActionError(null);
     try {
-      const data = await getNotifications();
-      setNotifications(data.filter((n) => n.status !== "dismissed"));
-    } catch (error) {
-      setLoadError(
-        error instanceof Error
-          ? error.message
-          : "Could not load notifications.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const handleRead = async (id: string) => {
-    try {
-      await markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, status: "read" } : n)),
-      );
-    } catch {
-      toast.error("Could not mark the notification as read");
+      const result = await actions.mutateAsync(input);
+      if (result) {
+        queryClient.setQueryData<Notification[]>(["notifications"], (current) =>
+          current?.map((notification) =>
+            notification.id === result.id ? result : notification,
+          ),
+        );
+      }
+      await queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    } catch (reason) {
+      setActionError(notificationWriteError(reason));
     }
   };
-
-  const handleDismiss = async (id: string) => {
-    try {
-      await dismissNotification(id);
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch {
-      toast.error("Could not dismiss the notification");
-    }
-  };
-
-  const handleMarkAllRead = async () => {
-    setActionPending(true);
-    try {
-      await markAllRead();
-      setNotifications((prev) =>
-        prev.map((n) => ({
-          ...n,
-          status: n.status === "unread" ? "read" : n.status,
-        })),
-      );
-    } catch {
-      toast.error("Could not mark all notifications as read");
-    } finally {
-      setActionPending(false);
-    }
-  };
+  const handleRead = (id: string) => void runAction({ action: "read", id });
+  const handleDismiss = (id: string) =>
+    void runAction({ action: "dismiss", id });
+  const handleMarkAllRead = () => void runAction({ action: "all" });
 
   const filtered = notifications.filter((n) => {
     if (filterDomain !== "all" && n.domain !== filterDomain) return false;
@@ -303,6 +315,11 @@ export default function NotificationsPage() {
       </div>
 
       {/* List */}
+      {actionError && (
+        <p role="alert" className="text-sm text-destructive">
+          {actionError}
+        </p>
+      )}
       {loading ? (
         <div className="rounded-lg border border-border overflow-hidden">
           {Array.from({ length: 5 }).map((_, i) => (
@@ -312,14 +329,8 @@ export default function NotificationsPage() {
             </div>
           ))}
         </div>
-      ) : loadError ? (
-        <div className="rounded-lg border border-destructive/40 p-8 text-center">
-          <p className="text-sm font-semibold">Could not load notifications</p>
-          <p className="mt-1 text-xs text-muted-foreground">{loadError}</p>
-          <Button className="mt-4" size="sm" onClick={() => void load()}>
-            Try again
-          </Button>
-        </div>
+      ) : error ? (
+        <LoadError error={error} onRetry={() => void refetch()} />
       ) : filtered.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <Bell className="h-10 w-10 text-muted-foreground mb-3" />
@@ -338,6 +349,7 @@ export default function NotificationsPage() {
               notification={n}
               onRead={handleRead}
               onDismiss={handleDismiss}
+              pending={actionPending}
             />
           ))}
         </div>

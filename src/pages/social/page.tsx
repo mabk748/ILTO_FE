@@ -30,11 +30,11 @@ export default function SocialPage() {
     refetch,
   } = useQuery({
     queryKey: ["social"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [contacts, followUps, goals] = await Promise.all([
-        getContacts(),
-        getFollowUps(),
-        getNetworkingGoals(),
+        getContacts({ signal }),
+        getFollowUps(undefined, { signal }),
+        getNetworkingGoals({ signal }),
       ]);
       return { contacts, followUps, goals };
     },

@@ -1,5 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { getMilestones, getProjects, getSprints } from "@/lib/api/projects.ts";
+import { useMemo, useEffect, useRef } from "react";
+import { useProjectsData } from "../projects-data.ts";
+import {
+  parseCalendarDate,
+  isCalendarDateOverdue,
+} from "@/lib/calendar-date.ts";
 import type { Milestone, Project, Sprint } from "@/lib/api/types.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
@@ -38,96 +42,50 @@ function getBarColor(kind: GanttRow["kind"], status: string) {
 }
 
 export default function GanttChart() {
-  const [rows, setRows] = useState<GanttRow[]>([]);
-  const [rangeStart, setRangeStart] = useState<Date>(new Date());
-  const [totalDays, setTotalDays] = useState(90);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
-  const [loadAttempt, setLoadAttempt] = useState(0);
+  const { data, error, isPending: loading, refetch } = useProjectsData();
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let active = true;
-    let scrollTimer: ReturnType<typeof setTimeout> | undefined;
-
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [pData, sprints, milestones] = await Promise.all([
-          getProjects(),
-          getSprints(),
-          getMilestones(),
-        ]);
-        if (!active) return;
-        const projects = pData.data;
-        const built: GanttRow[] = [];
-
-        // Find overall range
-        const dates: Date[] = [];
-        projects.forEach((p) => {
-          dates.push(new Date(p.start_date));
-          dates.push(
-            p.end_date ? new Date(p.end_date) : addDays(new Date(), 30),
-          );
-        });
-        sprints.forEach((s) => {
-          dates.push(new Date(s.start_date));
-          dates.push(new Date(s.end_date));
-        });
-        milestones.forEach((m) => {
-          dates.push(new Date(m.due_date));
-        });
-
-        const minDate = dates.reduce((a, b) => (a < b ? a : b), new Date());
-        const maxDate = dates.reduce((a, b) => (a > b ? a : b), new Date());
-        const start = startOfDay(addDays(minDate, -7));
-        const end = addDays(maxDate, 14);
-        const days = differenceInDays(end, start) + 1;
-
-        setRangeStart(start);
-        setTotalDays(days);
-
-        // Build rows: project → sprints for that project → milestones for that project
-        projects.forEach((p) => {
-          built.push({ kind: "project", project: p });
-          sprints
-            .filter((s) => s.project_id === p.id)
-            .forEach((s) =>
-              built.push({ kind: "sprint", sprint: s, project: p }),
-            );
-          milestones
-            .filter((m) => m.project_id === p.id)
-            .forEach((m) =>
-              built.push({ kind: "milestone", milestone: m, project: p }),
-            );
-        });
-
-        setRows(built);
-
-        // Scroll to today
-        const todayOffset = differenceInDays(startOfDay(new Date()), start);
-        scrollTimer = setTimeout(() => {
-          if (scrollRef.current) {
-            scrollRef.current.scrollLeft = Math.max(
-              0,
-              todayOffset * COLUMN_WIDTH - 120,
-            );
-          }
-        }, 50);
-      } catch (loadError) {
-        if (active) setError(loadError);
-      } finally {
-        if (active) setLoading(false);
+  const { rows, rangeStart, totalDays } = useMemo(() => {
+    const rows: GanttRow[] = [];
+    const dates = [startOfDay(new Date())];
+    for (const project of data?.projects ?? []) {
+      rows.push({ kind: "project", project });
+      dates.push(parseCalendarDate(project.start_date));
+      if (project.end_date) dates.push(parseCalendarDate(project.end_date));
+      for (const sprint of data?.sprints.filter(
+        (s) => s.project_id === project.id,
+      ) ?? []) {
+        rows.push({ kind: "sprint", sprint, project });
+        dates.push(
+          parseCalendarDate(sprint.start_date),
+          parseCalendarDate(sprint.end_date),
+        );
       }
+      for (const milestone of data?.milestones.filter(
+        (m) => m.project_id === project.id,
+      ) ?? []) {
+        rows.push({ kind: "milestone", milestone, project });
+        dates.push(parseCalendarDate(milestone.due_date));
+      }
+    }
+    const min = dates.reduce((a, b) => (a < b ? a : b));
+    const max = dates.reduce((a, b) => (a > b ? a : b));
+    const rangeStart = addDays(min, -7);
+    return {
+      rows,
+      rangeStart,
+      totalDays: differenceInDays(addDays(max, 14), rangeStart) + 1,
     };
-
-    void load();
-    return () => {
-      active = false;
-      if (scrollTimer) clearTimeout(scrollTimer);
-    };
-  }, [loadAttempt]);
+  }, [data]);
+  // Keep very long valid date ranges usable instead of creating millions of cells.
+  const columnWidth = Math.min(COLUMN_WIDTH, 10_000 / totalDays);
+  useEffect(() => {
+    if (scrollRef.current)
+      scrollRef.current.scrollLeft = Math.max(
+        0,
+        differenceInDays(startOfDay(new Date()), rangeStart) * columnWidth -
+          120,
+      );
+  }, [rangeStart, columnWidth, loading]);
 
   if (loading) {
     return (
@@ -143,7 +101,7 @@ export default function GanttChart() {
     return (
       <LoadError
         error={error}
-        onRetry={() => setLoadAttempt((attempt) => attempt + 1)}
+        onRetry={() => void refetch()}
         title="Could not load the project timeline"
       />
     );
@@ -159,21 +117,22 @@ export default function GanttChart() {
 
   // Build week header columns
   const weeks: { label: string; startDay: number; span: number }[] = [];
+  const tickDays = Math.max(7, Math.ceil(totalDays / 150 / 7) * 7);
   let d = 0;
   while (d < totalDays) {
     const weekStart = addDays(rangeStart, d);
     const daysLeft = totalDays - d;
-    const span = Math.min(7, daysLeft);
+    const span = Math.min(tickDays, daysLeft);
     weeks.push({
       label: format(weekStart, "MMM d"),
       startDay: d,
       span,
     });
-    d += 7;
+    d += tickDays;
   }
 
   const todayOffset = differenceInDays(startOfDay(new Date()), rangeStart);
-  const totalWidth = totalDays * COLUMN_WIDTH;
+  const totalWidth = totalDays * columnWidth;
   const LABEL_WIDTH = 180;
 
   return (
@@ -194,11 +153,13 @@ export default function GanttChart() {
             </span>
           </div>
           {rows.map((row) => {
-            let label = "";
-            let indent = 0;
+            let label: string;
+            let indent: number;
             let weight = "font-medium";
             if (row.kind === "project") {
-              label = row.project.name;
+              label = row.project.end_date
+                ? row.project.name
+                : `${row.project.name} (no end date)`;
               indent = 0;
               weight = "font-bold";
             } else if (row.kind === "sprint") {
@@ -240,7 +201,7 @@ export default function GanttChart() {
                 <div
                   key={w.startDay}
                   className="border-r border-border/40 px-2 flex items-center shrink-0"
-                  style={{ width: w.span * COLUMN_WIDTH }}
+                  style={{ width: w.span * columnWidth }}
                 >
                   <span className="text-[10px] text-muted-foreground font-semibold">
                     {w.label}
@@ -251,39 +212,42 @@ export default function GanttChart() {
               {todayOffset >= 0 && todayOffset <= totalDays && (
                 <div
                   className="absolute top-0 bottom-0 w-px bg-primary/60 z-20"
-                  style={{ left: todayOffset * COLUMN_WIDTH }}
+                  style={{ left: todayOffset * columnWidth }}
                 />
               )}
             </div>
 
             {/* Rows */}
             {rows.map((row) => {
-              let barLeft = 0;
-              let barWidth = 0;
-              let status = "";
-              let label = "";
+              let barLeft: number;
+              let barWidth: number;
+              let status: string;
+              let label: string;
 
               if (row.kind === "project") {
-                const start = new Date(row.project.start_date);
+                const start = parseCalendarDate(row.project.start_date);
                 const end = row.project.end_date
-                  ? new Date(row.project.end_date)
-                  : addDays(new Date(), 30);
-                barLeft = differenceInDays(start, rangeStart) * COLUMN_WIDTH;
-                barWidth = (differenceInDays(end, start) + 1) * COLUMN_WIDTH;
+                  ? parseCalendarDate(row.project.end_date)
+                  : start;
+                barLeft = differenceInDays(start, rangeStart) * columnWidth;
+                barWidth = (differenceInDays(end, start) + 1) * columnWidth;
                 status = row.project.status;
-                label = row.project.name;
+                label = row.project.end_date
+                  ? row.project.name
+                  : `${row.project.name} (no end date)`;
               } else if (row.kind === "sprint") {
-                const start = new Date(row.sprint.start_date);
-                const end = new Date(row.sprint.end_date);
-                barLeft = differenceInDays(start, rangeStart) * COLUMN_WIDTH;
-                barWidth = (differenceInDays(end, start) + 1) * COLUMN_WIDTH;
+                const start = parseCalendarDate(row.sprint.start_date);
+                const end = parseCalendarDate(row.sprint.end_date);
+                barLeft = differenceInDays(start, rangeStart) * columnWidth;
+                barWidth = (differenceInDays(end, start) + 1) * columnWidth;
                 status = row.sprint.status;
                 label = row.sprint.name;
               } else {
-                const due = new Date(row.milestone.due_date);
+                const due = parseCalendarDate(row.milestone.due_date);
                 const isDone = row.milestone.completed_at !== null;
-                const isOverdue = !isDone && due < new Date();
-                barLeft = differenceInDays(due, rangeStart) * COLUMN_WIDTH - 6;
+                const isOverdue =
+                  !isDone && isCalendarDateOverdue(row.milestone.due_date);
+                barLeft = differenceInDays(due, rangeStart) * columnWidth - 6;
                 barWidth = 12;
                 status = isDone
                   ? "completed"
@@ -309,7 +273,7 @@ export default function GanttChart() {
                     <div
                       key={wi}
                       className="absolute top-0 bottom-0 border-r border-border/20"
-                      style={{ left: w.startDay * COLUMN_WIDTH }}
+                      style={{ left: w.startDay * columnWidth }}
                     />
                   ))}
 
@@ -317,7 +281,7 @@ export default function GanttChart() {
                   {todayOffset >= 0 && todayOffset <= totalDays && (
                     <div
                       className="absolute top-0 bottom-0 w-px bg-primary/30 z-10"
-                      style={{ left: todayOffset * COLUMN_WIDTH }}
+                      style={{ left: todayOffset * columnWidth }}
                     />
                   )}
 
@@ -355,6 +319,10 @@ export default function GanttChart() {
         </div>
       </div>
 
+      <p className="px-4 py-2 text-xs text-muted-foreground">
+        Projects without an end date show only their start; no duration is
+        assumed.
+      </p>
       {/* Legend */}
       <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-muted/20">
         <div className="flex items-center gap-1.5">

@@ -32,14 +32,14 @@ export default function FinancesPage() {
     refetch,
   } = useQuery({
     queryKey: ["finances"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [categories, transactions, trades, netWorth, bills] =
         await Promise.all([
-          getBudgetCategories(),
-          getTransactions(),
-          getTrades(),
-          getNetWorthHistory(12),
-          getBills(),
+          getBudgetCategories({ signal }),
+          getTransactions({ signal }),
+          getTrades({ signal }),
+          getNetWorthHistory(12, { signal }),
+          getBills({ signal }),
         ]);
       return { categories, transactions, trades, netWorth, bills };
     },

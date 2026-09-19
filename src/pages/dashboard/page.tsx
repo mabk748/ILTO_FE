@@ -22,7 +22,7 @@ import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
-import { getProjects, getSprints, getTasks } from "@/lib/api/projects.ts";
+import { getAllProjects, getSprints, getTasks } from "@/lib/api/projects.ts";
 import { getNodes, getGitActivity } from "@/lib/api/infrastructure.ts";
 import { getHealthMetrics, getWorkoutSessions } from "@/lib/api/health.ts";
 import { getBudgetCategories } from "@/lib/api/finances.ts";
@@ -30,6 +30,7 @@ import { getDueCards, getAllCards } from "@/lib/api/learning.ts";
 import { getDeadlines, getCertifications } from "@/lib/api/work.ts";
 import { getFollowUps, getContacts } from "@/lib/api/social.ts";
 import { getSleepTrend, getCommitsTrend } from "@/lib/api/intelligence.ts";
+import { hasTrendObservations, toSparklinePoints } from "./sparkline-data.ts";
 import type {
   Project,
   Sprint,
@@ -74,8 +75,8 @@ interface DashboardData {
   certifications: Certification[];
   followUps: FollowUpPrompt[];
   contacts: Contact[];
-  sleepTrend: number[];
-  commitsTrend: number[];
+  sleepTrend: (number | null)[];
+  commitsTrend: (number | null)[];
 }
 
 // ─── Score helpers ───────────────────────────────────────────────────────────
@@ -128,8 +129,9 @@ function infraScore(nodes: InfraNode[]): number {
 }
 
 function healthScore(metrics: HealthMetric[]): number {
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const sleepValues = metrics
-    .slice(-7)
+    .filter((metric) => Date.parse(metric.date) >= sevenDaysAgo)
     .map((metric) => metric.sleep_hours)
     .filter((hours): hours is number => hours !== null);
   if (sleepValues.length === 0) return 0;
@@ -165,8 +167,14 @@ function socialScore(contacts: Contact[]): number {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const points = data.map((v) => ({ v }));
+function Sparkline({
+  data,
+  color,
+}: {
+  data: (number | null)[];
+  color: string;
+}) {
+  const points = toSparklinePoints(data);
   return (
     <ResponsiveContainer width="100%" height={28}>
       <LineChart
@@ -220,11 +228,16 @@ interface DomainCardProps {
   color: string;
   bg: string;
   metrics: Array<{ label: string; value: string }>;
-  sparkline?: number[];
+  sparkline?: (number | null)[];
   sparklineColor?: string;
+  emptySparklineLabel?: string;
 }
 
-async function loadDashboardData(): Promise<DashboardData> {
+async function loadDashboardData({
+  signal,
+}: {
+  signal: AbortSignal;
+}): Promise<DashboardData> {
   const [
     projectsResponse,
     sprints,
@@ -243,26 +256,26 @@ async function loadDashboardData(): Promise<DashboardData> {
     sleepTrend,
     commitsTrend,
   ] = await Promise.all([
-    getProjects(),
-    getSprints(),
-    getTasks(),
-    getNodes(),
-    getGitActivity(),
-    getHealthMetrics(30),
-    getWorkoutSessions(14),
-    getBudgetCategories(),
-    getDueCards(),
-    getAllCards(),
-    getDeadlines(),
-    getCertifications(),
-    getFollowUps(),
-    getContacts(),
-    getSleepTrend(),
-    getCommitsTrend(),
+    getAllProjects({ signal }),
+    getSprints(undefined, { signal }),
+    getTasks(undefined, { signal }),
+    getNodes({ signal }),
+    getGitActivity({ signal }),
+    getHealthMetrics(30, { signal }),
+    getWorkoutSessions(14, { signal }),
+    getBudgetCategories({ signal }),
+    getDueCards({ signal }),
+    getAllCards({ signal }),
+    getDeadlines({ signal }),
+    getCertifications({ signal }),
+    getFollowUps(undefined, { signal }),
+    getContacts({ signal }),
+    getSleepTrend({ signal }),
+    getCommitsTrend({ signal }),
   ]);
 
   return {
-    projects: projectsResponse.data,
+    projects: projectsResponse,
     sprints,
     tasks,
     nodes,
@@ -313,6 +326,7 @@ function DomainHealthCard({
   metrics,
   sparkline,
   sparklineColor,
+  emptySparklineLabel,
 }: DomainCardProps) {
   const status = scoreStatus(score);
   return (
@@ -379,11 +393,23 @@ function DomainHealthCard({
             ))}
           </div>
           {/* Sparkline */}
-          {sparkline && sparkline.length > 1 && (
-            <div className="mt-1 opacity-70">
-              <Sparkline data={sparkline} color={sparklineColor ?? "#a78bfa"} />
-            </div>
-          )}
+          {sparkline &&
+            hasTrendObservations(sparkline) &&
+            sparkline.length > 1 && (
+              <div className="mt-1 opacity-70">
+                <Sparkline
+                  data={sparkline}
+                  color={sparklineColor ?? "#a78bfa"}
+                />
+              </div>
+            )}
+          {sparkline &&
+            !hasTrendObservations(sparkline) &&
+            emptySparklineLabel && (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {emptySparklineLabel}
+              </p>
+            )}
         </CardContent>
       </Card>
     </Link>
@@ -565,10 +591,11 @@ export default function DashboardPage() {
             ],
             sparkline: data.commitsTrend,
             sparklineColor: "#60a5fa",
+            emptySparklineLabel: "No dated commit history",
           },
           {
             domain: "health",
-            label: "Health",
+            label: "Health (7d sleep / 8h target)",
             icon: HeartPulse,
             path: "/health",
             score: scores.health,
@@ -593,6 +620,7 @@ export default function DashboardPage() {
             ],
             sparkline: data.sleepTrend,
             sparklineColor: "#f87171",
+            emptySparklineLabel: "No stored sleep trend",
           },
           {
             domain: "finances",
@@ -624,7 +652,7 @@ export default function DashboardPage() {
           },
           {
             domain: "work",
-            label: "Work",
+            label: "Work (100 − 25 per overdue)",
             icon: Briefcase,
             path: "/work",
             score: scores.work,
@@ -644,7 +672,7 @@ export default function DashboardPage() {
           },
           {
             domain: "social",
-            label: "Social",
+            label: "Social (active contacts %)",
             icon: Users,
             path: "/social",
             score: scores.social,
@@ -885,7 +913,7 @@ export default function DashboardPage() {
               asChild
               className="cursor-pointer"
             >
-              <Link to="/health">
+              <Link to="/health?tab=sessions&action=log-workout">
                 <Dumbbell className="h-3.5 w-3.5 mr-1.5" />
                 Log workout
               </Link>

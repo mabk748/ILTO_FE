@@ -1,5 +1,7 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import RequireOwner from "./components/layout/RequireOwner.tsx";
+import LoginPage from "./pages/auth/Login.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
 import { Skeleton } from "./components/ui/skeleton.tsx";
 
@@ -36,21 +38,36 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<PageFallback />}>
         <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<DashboardPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
-            <Route path="/infrastructure" element={<InfrastructurePage />} />
-            <Route path="/health" element={<HealthPage />} />
-            <Route path="/finances" element={<FinancesPage />} />
-            <Route path="/learning" element={<LearningPage />} />
-            <Route path="/work" element={<WorkPage />} />
-            <Route path="/social" element={<SocialPage />} />
-            <Route path="/appearance" element={<AppearancePage />} />
-            <Route path="/logistics" element={<LogisticsPage />} />
-            <Route path="/api-docs" element={<ApiDocsPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/intelligence" element={<IntelligencePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/settings"
+            element={
+              <>
+                <nav className="p-4">
+                  <Link className="underline" to="/projects">
+                    Back to ILTO / sign in
+                  </Link>
+                </nav>
+                <SettingsPage />
+              </>
+            }
+          />
+          <Route element={<RequireOwner />}>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/infrastructure" element={<InfrastructurePage />} />
+              <Route path="/health" element={<HealthPage />} />
+              <Route path="/finances" element={<FinancesPage />} />
+              <Route path="/learning" element={<LearningPage />} />
+              <Route path="/work" element={<WorkPage />} />
+              <Route path="/social" element={<SocialPage />} />
+              <Route path="/appearance" element={<AppearancePage />} />
+              <Route path="/logistics" element={<LogisticsPage />} />
+              <Route path="/api-docs" element={<ApiDocsPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/intelligence" element={<IntelligencePage />} />
+            </Route>
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

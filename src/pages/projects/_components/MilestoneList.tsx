@@ -1,6 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useProjectsData } from "../projects-data.ts";
+import ResourceControls from "./ResourceControls.tsx";
 import type { Milestone, Project } from "@/lib/api/types.ts";
-import { getMilestones, getProjects } from "@/lib/api/projects.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import {
   Card,
@@ -8,7 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
-import { format, formatDistanceToNow, isPast } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
+import {
+  formatCalendarDate,
+  isCalendarDateOverdue,
+} from "@/lib/calendar-date.ts";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
 import { CheckCircle2, Circle, CalendarDays, FolderKanban } from "lucide-react";
@@ -29,7 +33,7 @@ function MilestoneRow({
   project: Project | undefined;
 }) {
   const isDone = milestone.completed_at !== null;
-  const overdue = !isDone && isPast(new Date(milestone.due_date));
+  const overdue = !isDone && isCalendarDateOverdue(milestone.due_date);
 
   return (
     <div className="flex gap-4 items-start border-b border-border last:border-0 py-4">
@@ -54,6 +58,9 @@ function MilestoneRow({
         >
           {milestone.title}
         </p>
+        <div className="my-2">
+          <ResourceControls target={{ kind: "milestone", record: milestone }} />
+        </div>
         <p className="text-xs text-muted-foreground mt-0.5 truncate">
           {milestone.description}
         </p>
@@ -69,8 +76,8 @@ function MilestoneRow({
               {isDone
                 ? `Completed ${formatDistanceToNow(new Date(milestone.completed_at!), { addSuffix: true })}`
                 : overdue
-                  ? `Overdue · due ${format(new Date(milestone.due_date), "MMM d, yyyy")}`
-                  : `Due ${format(new Date(milestone.due_date), "MMM d, yyyy")}`}
+                  ? `Overdue · due ${formatCalendarDate(milestone.due_date)}`
+                  : `Due ${formatCalendarDate(milestone.due_date)}`}
             </span>
           </div>
           {project && (
@@ -85,15 +92,15 @@ function MilestoneRow({
 }
 
 function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
-  const sorted = [...milestones].sort(
-    (a, b) => new Date(a.due_date).getTime() - new Date(b.due_date).getTime(),
+  const sorted = [...milestones].sort((a, b) =>
+    a.due_date.localeCompare(b.due_date),
   );
 
   return (
     <div className="relative flex items-center gap-0 overflow-x-auto py-4 px-1">
       {sorted.map((m, i) => {
         const isDone = m.completed_at !== null;
-        const overdue = !isDone && isPast(new Date(m.due_date));
+        const overdue = !isDone && isCalendarDateOverdue(m.due_date);
         return (
           <div key={m.id} className="flex items-center">
             <div className="flex flex-col items-center gap-1 min-w-[100px]">
@@ -108,7 +115,7 @@ function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
                 )}
               />
               <span className="text-[10px] text-center text-muted-foreground leading-tight px-1">
-                {format(new Date(m.due_date), "MMM d")}
+                {formatCalendarDate(m.due_date, "MMM d")}
               </span>
             </div>
             {i < sorted.length - 1 && (
@@ -122,21 +129,7 @@ function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
 }
 
 export default function MilestoneList() {
-  const {
-    data,
-    error,
-    isPending: loading,
-    refetch,
-  } = useQuery({
-    queryKey: ["projects", "milestones"],
-    queryFn: async () => {
-      const [milestones, projects] = await Promise.all([
-        getMilestones(),
-        getProjects(),
-      ]);
-      return { milestones, projects: projects.data };
-    },
-  });
+  const { data, error, isPending: loading, refetch } = useProjectsData();
 
   if (loading) {
     return (
@@ -174,6 +167,9 @@ export default function MilestoneList() {
 
         <Card>
           <CardContent className="pt-4 divide-y divide-border">
+            {milestones.length === 0 && (
+              <p className="py-4 text-sm">No milestones yet.</p>
+            )}
             {milestones.map((m) => (
               <MilestoneRow
                 key={m.id}

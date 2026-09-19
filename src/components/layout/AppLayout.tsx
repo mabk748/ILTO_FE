@@ -17,6 +17,8 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import { useOwnerAuth } from "@/components/providers/owner-auth-context.ts";
+import { Button } from "@/components/ui/button.tsx";
 import type { DomainName } from "@/lib/api/types.ts";
 import { useSettings } from "@/components/providers/settings-context.ts";
 import {
@@ -108,6 +110,7 @@ function SidebarLink({
 }
 
 export default function AppLayout() {
+  const { owner, logout } = useOwnerAuth();
   const location = useLocation();
   const { settings } = useSettings();
   const visibleNavItems = navItems.filter(
@@ -132,7 +135,7 @@ export default function AppLayout() {
             ILTO
           </span>
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-            v0.4
+            v0.1
           </span>
         </div>
 
@@ -152,6 +155,12 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto pb-16 md:pb-0">
+        <header className="flex items-center justify-end gap-3 border-b px-4 py-2 text-sm">
+          <span>{owner?.username}</span>
+          <Button variant="outline" size="sm" onClick={() => void logout()}>
+            Sign out
+          </Button>
+        </header>
         <Outlet />
       </main>
 

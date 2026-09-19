@@ -6,6 +6,7 @@ import type {
   Season,
 } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
+import AppearanceResourceControls from "./AppearanceResourceControls.tsx";
 
 const CATEGORIES: { id: ClothingCategory | "all"; label: string }[] = [
   { id: "all", label: "All" },
@@ -78,6 +79,13 @@ export default function WardrobeGrid({ items }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-foreground">Wardrobe</h2>
+        <AppearanceResourceControls
+          target={{ kind: "wardrobe" }}
+          wardrobeItems={items}
+        />
+      </div>
       {/* Stats bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
@@ -103,6 +111,8 @@ export default function WardrobeGrid({ items }: Props) {
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
+            type="button"
+            aria-pressed={categoryFilter === c.id}
             onClick={() => setCategoryFilter(c.id)}
             className={cn(
               "px-3 py-1 text-xs font-medium rounded-full border transition-colors cursor-pointer",
@@ -118,8 +128,14 @@ export default function WardrobeGrid({ items }: Props) {
 
       {/* Season filter */}
       <div className="flex items-center gap-2">
-        <span className="text-xs text-muted-foreground shrink-0">Season:</span>
+        <label
+          htmlFor="wardrobe-season-filter"
+          className="text-xs text-muted-foreground shrink-0"
+        >
+          Season:
+        </label>
         <select
+          id="wardrobe-season-filter"
           value={seasonFilter}
           onChange={(e) => setSeasonFilter(e.target.value as Season | "all")}
           className="bg-card border border-border text-sm text-foreground rounded px-2 py-1 cursor-pointer"
@@ -134,6 +150,17 @@ export default function WardrobeGrid({ items }: Props) {
           {filtered.length} items
         </span>
       </div>
+
+      {items.length === 0 && (
+        <div className="bg-card border border-border rounded-lg py-8 text-center text-sm text-muted-foreground">
+          No wardrobe items yet.
+        </div>
+      )}
+      {items.length > 0 && filtered.length === 0 && (
+        <div className="bg-card border border-border rounded-lg py-8 text-center text-sm text-muted-foreground">
+          No wardrobe items match the selected filters.
+        </div>
+      )}
 
       {/* Grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -198,6 +225,10 @@ export default function WardrobeGrid({ items }: Props) {
                     ))}
                   </div>
                 )}
+                <AppearanceResourceControls
+                  target={{ kind: "wardrobe", record: item }}
+                  wardrobeItems={items}
+                />
               </div>
             </div>
           );

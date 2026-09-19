@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getRoadmaps,
   getSkills,
-  getAllCards,
+  getDueCards,
   getReadingList,
 } from "@/lib/api/learning.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -25,20 +25,18 @@ export default function LearningPage() {
     refetch,
   } = useQuery({
     queryKey: ["learning"],
-    queryFn: async () => {
-      const [roadmaps, skills, cards, reading] = await Promise.all([
-        getRoadmaps(),
-        getSkills(),
-        getAllCards(),
-        getReadingList(),
+    queryFn: async ({ signal }) => {
+      const [roadmaps, skills, dueCards, reading] = await Promise.all([
+        getRoadmaps({ signal }),
+        getSkills(undefined, { signal }),
+        getDueCards({ signal }),
+        getReadingList({ signal }),
       ]);
-      return { roadmaps, skills, cards, reading };
+      return { roadmaps, skills, dueCards, reading };
     },
   });
 
-  const dueCount = (data?.cards ?? []).filter(
-    (c) => new Date(c.next_review) <= new Date(),
-  ).length;
+  const dueCount = data?.dueCards.length ?? 0;
 
   const TABS = [
     { id: "roadmaps" as Tab, label: "Roadmaps" },
@@ -94,7 +92,7 @@ export default function LearningPage() {
               skills={data?.skills ?? []}
             />
           )}
-          {tab === "review" && <ReviewQueue cards={data?.cards ?? []} />}
+          {tab === "review" && <ReviewQueue cards={data?.dueCards ?? []} />}
           {tab === "reading" && <ReadingList entries={data?.reading ?? []} />}
         </>
       )}

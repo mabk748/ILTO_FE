@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import type { DocumentRecord, DocumentType } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
 import { AlertTriangle, ShieldAlert, FileText } from "lucide-react";
+import LogisticsResourceControls from "./LogisticsResourceControls.tsx";
 
 const typeLabel: Record<DocumentType, string> = {
   passport: "Passport",
@@ -14,23 +15,24 @@ const typeLabel: Record<DocumentType, string> = {
   other: "Other",
 };
 
+const statusStyle: Record<DocumentRecord["status"], string> = {
+  expired: "bg-red-500/20 text-red-400 border-red-500/40",
+  expiring_soon: "bg-amber-500/20 text-amber-400 border-amber-500/40",
+  valid: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+};
+
+const statusLabel: Record<DocumentRecord["status"], string> = {
+  expired: "Expired",
+  expiring_soon: "Expiring soon",
+  valid: "Valid",
+};
+
 function expiryPill(doc: DocumentRecord) {
-  if (doc.status === "expired") {
-    return "bg-red-500/20 text-red-400 border-red-500/40";
-  }
-  const d = doc.days_until_expiry;
-  if (d === null) return "bg-muted text-muted-foreground border-border";
-  if (d < 30) return "bg-red-500/20 text-red-400 border-red-500/40";
-  if (d < 90) return "bg-amber-500/20 text-amber-400 border-amber-500/40";
-  return "bg-emerald-500/20 text-emerald-400 border-emerald-500/40";
+  return statusStyle[doc.status];
 }
 
 function expiryLabel(doc: DocumentRecord) {
-  if (doc.status === "expired") return "Expired";
-  const d = doc.days_until_expiry;
-  if (d === null) return "No expiry";
-  if (d < 0) return `${Math.abs(d)}d overdue`;
-  return `${d}d left`;
+  return statusLabel[doc.status];
 }
 
 interface Props {
@@ -53,6 +55,10 @@ export default function DocumentsView({ documents }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-foreground">Documents</h2>
+        <LogisticsResourceControls target={{ kind: "document" }} />
+      </div>
       {/* Alert banners */}
       {expired.length > 0 && (
         <div className="flex items-start gap-2 px-3 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
@@ -76,6 +82,11 @@ export default function DocumentsView({ documents }: Props) {
       )}
 
       {/* Document cards */}
+      {sorted.length === 0 && (
+        <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          No documents yet.
+        </div>
+      )}
       <div className="space-y-2">
         {sorted.map((doc) => (
           <div
@@ -125,6 +136,13 @@ export default function DocumentsView({ documents }: Props) {
               <span className="text-[10px] italic">
                 Start renewal {doc.renewal_lead_days}d before expiry
               </span>
+              {doc.days_until_expiry !== null && (
+                <span className="text-[10px] italic">
+                  {doc.days_until_expiry} day
+                  {Math.abs(doc.days_until_expiry) === 1 ? "" : "s"} until
+                  expiry
+                </span>
+              )}
             </div>
 
             {doc.notes && (
@@ -132,6 +150,9 @@ export default function DocumentsView({ documents }: Props) {
                 {doc.notes}
               </p>
             )}
+            <LogisticsResourceControls
+              target={{ kind: "document", record: doc }}
+            />
           </div>
         ))}
       </div>

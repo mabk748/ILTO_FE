@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { format } from "date-fns";
 import type { AppearanceSpend } from "@/lib/api/types.ts";
 import {
@@ -17,11 +18,41 @@ interface Props {
 }
 
 export default function AppearanceSpendView({ spend }: Props) {
-  const totalThisYear = spend.reduce((s, e) => s + e.amount, 0);
+  const currencies = Array.from(new Set(spend.map((entry) => entry.currency)))
+    .filter(Boolean)
+    .sort();
+  const [selectedCurrency, setSelectedCurrency] = useState(
+    () => currencies[0] ?? "",
+  );
+  const activeCurrency = currencies.includes(selectedCurrency)
+    ? selectedCurrency
+    : (currencies[0] ?? "");
+
+  if (spend.length === 0) {
+    return (
+      <div className="bg-card border border-border rounded-lg py-8 text-center text-sm text-muted-foreground">
+        No imported appearance spending records.
+      </div>
+    );
+  }
+
+  const selectedSpend = spend.filter(
+    (entry) => entry.currency === activeCurrency,
+  );
+  const totalsByCurrency = currencies.map((currency) => ({
+    currency,
+    total: spend
+      .filter((entry) => entry.currency === currency)
+      .reduce((sum, entry) => sum + entry.amount, 0),
+  }));
+  const totalForCurrency = selectedSpend.reduce(
+    (sum, entry) => sum + entry.amount,
+    0,
+  );
 
   // Spend by category
   const byCat: Record<string, number> = {};
-  for (const e of spend) {
+  for (const e of selectedSpend) {
     byCat[e.category] = (byCat[e.category] ?? 0) + e.amount;
   }
   const catData = Object.entries(byCat)
@@ -33,7 +64,7 @@ export default function AppearanceSpendView({ spend }: Props) {
 
   // Monthly totals (line chart)
   const byMonth: Record<string, number> = {};
-  for (const e of spend) {
+  for (const e of selectedSpend) {
     const key = format(new Date(e.date), "MMM yy");
     byMonth[key] = (byMonth[key] ?? 0) + e.amount;
   }
@@ -44,29 +75,75 @@ export default function AppearanceSpendView({ spend }: Props) {
     )
     .map(([month, total]) => ({ month, total: Number(total.toFixed(2)) }));
 
-  const sorted = [...spend].sort(
+  const sorted = [...selectedSpend].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 
   return (
     <div className="space-y-5">
-      {/* Total card */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">
+            Appearance spend
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Imported records; no currency conversion.
+          </p>
+        </div>
+        {currencies.length > 1 && (
+          <label
+            className="text-sm text-muted-foreground"
+            htmlFor="appearance-spend-currency"
+          >
+            Currency
+            <select
+              id="appearance-spend-currency"
+              className="ml-2 bg-card border border-border text-sm text-foreground rounded px-2 py-1 cursor-pointer"
+              value={activeCurrency}
+              onChange={(event) => setSelectedCurrency(event.target.value)}
+            >
+              {currencies.map((currency) => (
+                <option key={currency} value={currency}>
+                  {currency}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {totalsByCurrency.map(({ currency, total }) => (
+          <div
+            key={currency}
+            className="bg-card border border-border rounded-lg p-3"
+          >
+            <p className="text-xs text-muted-foreground">
+              {currency} total (all stored)
+            </p>
+            <p className="text-lg font-bold text-foreground mt-1">
+              {currency} {total.toFixed(2)}
+            </p>
+          </div>
+        ))}
+      </div>
+
       <div className="bg-card border border-border rounded-lg p-4">
         <p className="text-xs text-muted-foreground">
-          Total Appearance Spend (YTD)
+          {activeCurrency} appearance spend (all stored records)
         </p>
         <p className="text-2xl font-bold text-foreground mt-1">
-          €{totalThisYear.toFixed(2)}
+          {activeCurrency} {totalForCurrency.toFixed(2)}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
-          {spend.length} transactions
+          {selectedSpend.length} {activeCurrency} transactions
         </p>
       </div>
 
       {/* Bar chart: by category */}
       <div className="bg-card border border-border rounded-lg p-4">
         <p className="text-sm font-semibold text-foreground mb-3">
-          Spend by Category
+          Spend by Category ({activeCurrency})
         </p>
         <ResponsiveContainer width="100%" height={160}>
           <BarChart
@@ -96,7 +173,7 @@ export default function AppearanceSpendView({ spend }: Props) {
       {monthData.length > 1 && (
         <div className="bg-card border border-border rounded-lg p-4">
           <p className="text-sm font-semibold text-foreground mb-3">
-            Monthly Spend Trend
+            Monthly Spend Trend ({activeCurrency})
           </p>
           <ResponsiveContainer width="100%" height={140}>
             <LineChart
@@ -132,7 +209,7 @@ export default function AppearanceSpendView({ spend }: Props) {
       {/* Transaction list */}
       <div className="bg-card border border-border rounded-lg divide-y divide-border overflow-hidden">
         <p className="text-sm font-semibold text-foreground px-4 py-3">
-          Transactions
+          {activeCurrency} Transactions
         </p>
         {sorted.map((e) => (
           <div

@@ -20,13 +20,15 @@ import MetricsChart from "./_components/MetricsChart.tsx";
 import GitActivityTable from "./_components/GitActivityTable.tsx";
 import { formatDistanceToNow } from "date-fns";
 import LoadError from "@/components/LoadError.tsx";
+import NodeControls from "./_components/NodeControls.tsx";
 
-async function loadInfrastructureData() {
-  const nodes = await getNodes();
+async function loadInfrastructureData({ signal }: { signal: AbortSignal }) {
+  const nodes = await getNodes({ signal });
+  signal.throwIfAborted();
   const [latestResults, historicalResults, gitActivity] = await Promise.all([
-    Promise.all(nodes.map((node) => getLatestMetric(node.id))),
-    Promise.all(nodes.map((node) => getNodeMetrics(node.id, 24))),
-    getGitActivity(),
+    Promise.all(nodes.map((node) => getLatestMetric(node.id, { signal }))),
+    Promise.all(nodes.map((node) => getNodeMetrics(node.id, 24, { signal }))),
+    getGitActivity({ signal }),
   ]);
 
   const latestMetrics: Record<string, SystemMetric | null> = {};
@@ -59,32 +61,40 @@ export default function InfrastructurePage() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Server className="h-6 w-6 text-primary shrink-0" />
-          <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
-            Infrastructure
-          </h1>
+          <div>
+            <h1
+              className="text-2xl font-bold"
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            >
+              Infrastructure
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              Stored readouts and registered node metadata
+            </p>
+          </div>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs text-muted-foreground"
-          onClick={() => void refetch()}
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
-          />
-          <span>
-            Refreshed{" "}
-            {dataUpdatedAt
-              ? formatDistanceToNow(new Date(dataUpdatedAt), {
-                  addSuffix: true,
-                })
-              : "never"}
-          </span>
-        </Button>
+        <div className="flex items-center gap-2">
+          <NodeControls />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => void refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw
+              className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
+            />
+            <span>
+              Refreshed{" "}
+              {dataUpdatedAt
+                ? formatDistanceToNow(new Date(dataUpdatedAt), {
+                    addSuffix: true,
+                  })
+                : "never"}
+            </span>
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -105,7 +115,7 @@ export default function InfrastructurePage() {
                   <Skeleton key={index} className="h-48 w-full" />
                 ))}
               </div>
-            ) : (
+            ) : nodes.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {nodes.map((node) => (
                   <NodeCard
@@ -115,6 +125,10 @@ export default function InfrastructurePage() {
                   />
                 ))}
               </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No nodes registered yet. Create a node to track stored readouts.
+              </p>
             )}
           </section>
 

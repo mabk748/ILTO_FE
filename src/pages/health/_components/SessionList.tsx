@@ -1,10 +1,17 @@
-import type { WorkoutSession, WorkoutType } from "@/lib/api/types.ts";
+import type {
+  TrainingPlan,
+  WorkoutSession,
+  WorkoutType,
+} from "@/lib/api/types.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils.ts";
+import HealthResourceControls from "./HealthResourceControls.tsx";
 
 interface Props {
   sessions: WorkoutSession[];
+  plans?: TrainingPlan[];
+  autoCreate?: boolean;
 }
 
 const TYPE_STYLES: Record<WorkoutType, string> = {
@@ -32,9 +39,34 @@ function RpeDots({ rpe }: { rpe: number }) {
   );
 }
 
-export default function SessionList({ sessions }: Props) {
+export default function SessionList({
+  sessions,
+  plans = [],
+  autoCreate = false,
+}: Props) {
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Workout sessions</h2>
+          <p className="text-xs text-muted-foreground">
+            Sessions are newest first; this view shows the backend&apos;s 14-day
+            window.
+          </p>
+        </div>
+        <HealthResourceControls
+          target={{ kind: "workout" }}
+          plans={plans}
+          autoOpen={autoCreate}
+        />
+      </div>
+      {sessions.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No workout sessions in the selected window.
+          </CardContent>
+        </Card>
+      )}
       {sessions.map((s) => (
         <Card key={s.id}>
           <CardContent className="pt-3 pb-3">
@@ -50,11 +82,17 @@ export default function SessionList({ sessions }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-medium text-sm truncate">{s.name}</p>
-                  <p className="text-xs text-muted-foreground shrink-0">
-                    {formatDistanceToNow(new Date(s.completed_at), {
-                      addSuffix: true,
-                    })}
-                  </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(new Date(s.completed_at), {
+                        addSuffix: true,
+                      })}
+                    </p>
+                    <HealthResourceControls
+                      target={{ kind: "workout", record: s }}
+                      plans={plans}
+                    />
+                  </div>
                 </div>
                 {s.duration_minutes > 0 && (
                   <p className="text-xs text-muted-foreground">

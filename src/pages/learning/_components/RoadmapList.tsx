@@ -7,6 +7,7 @@ import type {
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import LearningResourceControls from "./LearningResourceControls.tsx";
 
 interface Props {
   roadmaps: LearningRoadmap[];
@@ -33,54 +34,73 @@ export default function RoadmapList({ roadmaps, skills }: Props) {
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">Roadmaps</h2>
+        <LearningResourceControls target={{ kind: "roadmap" }} />
+      </div>
+      {roadmaps.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No roadmaps yet.
+          </CardContent>
+        </Card>
+      )}
       {roadmaps.map((r) => {
-        const pct = Math.round((r.skills_completed / r.skills_total) * 100);
+        const pct =
+          r.skills_total > 0
+            ? Math.round((r.skills_completed / r.skills_total) * 100)
+            : null;
         const isOpen = expanded === r.id;
         const roadmapSkills = skills.filter((s) => s.roadmap_id === r.id);
 
         return (
           <Card key={r.id}>
             <CardContent className="pt-4 space-y-3">
-              <button
-                onClick={() => setExpanded(isOpen ? null : r.id)}
-                className="w-full text-left cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-2 min-w-0">
-                    {isOpen ? (
-                      <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm">{r.name}</p>
-                      <p className="text-xs text-muted-foreground">{r.goal}</p>
-                    </div>
+              <div className="flex items-start justify-between gap-3">
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  onClick={() => setExpanded(isOpen ? null : r.id)}
+                  className="flex min-w-0 flex-1 items-center gap-2 text-left cursor-pointer"
+                >
+                  {isOpen ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm">{r.name}</p>
+                    <p className="text-xs text-muted-foreground">{r.goal}</p>
                   </div>
-                  <span
-                    className={cn(
-                      "text-[11px] px-2 py-0.5 rounded-full border font-medium shrink-0",
-                      STATUS_STYLES[r.status],
-                    )}
-                  >
-                    {r.status}
+                </button>
+                <span
+                  className={cn(
+                    "text-[11px] px-2 py-0.5 rounded-full border font-medium shrink-0",
+                    STATUS_STYLES[r.status],
+                  )}
+                >
+                  {r.status}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>
+                    {r.skills_completed} / {r.skills_total} skills
                   </span>
+                  <span>{pct === null ? "No skills recorded" : `${pct}%`}</span>
                 </div>
-                <div className="mt-3 space-y-1">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>
-                      {r.skills_completed} / {r.skills_total} skills
-                    </span>
-                    <span>{pct}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
+                <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{
+                      width: `${Math.max(0, Math.min(100, pct ?? 0))}%`,
+                    }}
+                  />
                 </div>
-              </button>
+              </div>
+              <LearningResourceControls
+                target={{ kind: "roadmap", record: r }}
+              />
 
               {isOpen && roadmapSkills.length > 0 && (
                 <div className="pt-2 border-t border-border space-y-2">
@@ -108,13 +128,20 @@ export default function RoadmapList({ roadmaps, skills }: Props) {
                               "h-full rounded-full",
                               gapColor(sk.gap_score),
                             )}
-                            style={{ width: `${sk.gap_score}%` }}
+                            style={{
+                              width: `${Math.max(0, Math.min(100, sk.gap_score))}%`,
+                            }}
                           />
                         </div>
                       </div>
                     );
                   })}
                 </div>
+              )}
+              {isOpen && roadmapSkills.length === 0 && (
+                <p className="pt-2 border-t border-border text-sm text-muted-foreground">
+                  No skills are attached to this roadmap yet.
+                </p>
               )}
             </CardContent>
           </Card>

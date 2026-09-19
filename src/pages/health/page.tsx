@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import {
   getHealthMetrics,
   getTrainingPlans,
@@ -22,7 +23,14 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function HealthPage() {
-  const [tab, setTab] = useState<Tab>("overview");
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const logWorkout = searchParams.get("action") === "log-workout";
+  const [tab, setTab] = useState<Tab>(
+    requestedTab === "sessions" || requestedTab === "training"
+      ? requestedTab
+      : "overview",
+  );
   const {
     data,
     error,
@@ -30,11 +38,11 @@ export default function HealthPage() {
     refetch,
   } = useQuery({
     queryKey: ["health"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [metrics, plans, sessions] = await Promise.all([
-        getHealthMetrics(30),
-        getTrainingPlans(),
-        getWorkoutSessions(14),
+        getHealthMetrics(30, { signal }),
+        getTrainingPlans({ signal }),
+        getWorkoutSessions(14, { signal }),
       ]);
       return { metrics, plans, sessions };
     },
@@ -85,7 +93,11 @@ export default function HealthPage() {
           )}
           {tab === "training" && <TrainingPlanList plans={data?.plans ?? []} />}
           {tab === "sessions" && (
-            <SessionList sessions={data?.sessions ?? []} />
+            <SessionList
+              sessions={data?.sessions ?? []}
+              plans={data?.plans ?? []}
+              autoCreate={logWorkout}
+            />
           )}
         </>
       )}

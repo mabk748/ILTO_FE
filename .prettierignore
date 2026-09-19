@@ -1,1 +1,4 @@
-/pnpm-lock.yaml
+.codex/
+dist/
+graphify-out/
+node_modules/

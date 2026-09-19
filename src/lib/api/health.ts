@@ -1,86 +1,151 @@
+import { getArray } from "./resource.ts";
+/** Proposed backend contract: see docs/backend-api.md. */
+import { apiClient, type ApiRequestOptions } from "./client.ts";
+import { ApiError } from "./errors.ts";
+import { encodeId, getNullable } from "./resource.ts";
 import type { TrainingPlan, WorkoutSession, HealthMetric } from "./types.ts";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE ??
-  "https://n8n-pr.mhabproperties.org/webhook/api/v1/health";
-
-async function getJson<T>(resource: string): Promise<T> {
-  const res = await fetch(`${API_BASE}?resource=${resource}`);
-  if (!res.ok)
-    throw new Error(`GET /health?resource=${resource} failed: ${res.status}`);
-  return res.json();
+export function getTrainingPlans(
+  options: ApiRequestOptions = {},
+): Promise<TrainingPlan[]> {
+  return getArray<TrainingPlan>(`/health/training-plans`, options);
 }
 
-// GET /api/v1/health/training-plans
-export async function getTrainingPlans(): Promise<TrainingPlan[]> {
-  return getJson<TrainingPlan[]>("training-plan");
-}
-
-// GET /api/v1/health/training-plans/:id
-export async function getTrainingPlan(
+export function getTrainingPlan(
   id: string,
+  options: ApiRequestOptions = {},
 ): Promise<TrainingPlan | null> {
-  return getJson<TrainingPlan>(`training-plan&id=${id}`) ?? null;
+  return getNullable<TrainingPlan>(
+    `/health/training-plans/${encodeId(id)}`,
+    options,
+  );
 }
 
-// GET /api/v1/health/workouts?days=14
-export async function getWorkoutSessions(days = 14): Promise<WorkoutSession[]> {
-  const sessions = await getJson<WorkoutSession[]>("workout-session");
-  return sessions.slice(0, days);
+export function getWorkoutSessions(
+  days = 14,
+  options: ApiRequestOptions = {},
+): Promise<WorkoutSession[]> {
+  if (!Number.isInteger(days) || days < 1 || days > 3650) {
+    return Promise.reject(
+      new ApiError(
+        "Workout history days must be an integer from 1 to 3650.",
+        "configuration",
+      ),
+    );
+  }
+  return getArray<WorkoutSession>(`/health/workouts`, {
+    ...options,
+    query: { ...options.query, ...{ days } },
+  });
 }
 
-// GET /api/v1/health/metrics?days=30
-export async function getHealthMetrics(days = 30): Promise<HealthMetric[]> {
-  const metrics = await getJson<HealthMetric[]>("health-metric");
-  return metrics.slice(-days);
+export function getHealthMetrics(
+  days = 30,
+  options: ApiRequestOptions = {},
+): Promise<HealthMetric[]> {
+  if (!Number.isInteger(days) || days < 1 || days > 3650) {
+    return Promise.reject(
+      new ApiError(
+        "Health metric history days must be an integer from 1 to 3650.",
+        "configuration",
+      ),
+    );
+  }
+  return getArray<HealthMetric>(`/health/metrics`, {
+    ...options,
+    query: { ...options.query, ...{ days } },
+  });
 }
 
-// GET /api/v1/health/metrics/latest
-export async function getLatestHealthMetric(): Promise<HealthMetric | null> {
-  const metrics = await getJson<HealthMetric[]>("health-metric");
-  return metrics[metrics.length - 1] ?? null;
+export function getLatestHealthMetric(
+  options: ApiRequestOptions = {},
+): Promise<HealthMetric | null> {
+  return apiClient.get<HealthMetric | null>(`/health/metrics/latest`, options);
 }
 
-// TO BE CLEANED: START
-/**
- * Health Domain API
- *
- * INTEGRATION GUIDE:
- * Base URL: http://your-server:8000/api/v1/health
- *
- * Biometric data (weight, HRV, sleep) syncs from wearable integrations
- * (Garmin Connect, Apple Health export) via the backend data ingestion pipeline.
- * Manual entries are also supported via POST endpoints.
+export type CreateTrainingPlanInput = Omit<TrainingPlan, "id" | "created_at">;
+export type UpdateTrainingPlanInput = Partial<CreateTrainingPlanInput>;
 
-
-import type { TrainingPlan, WorkoutSession, HealthMetric } from "./types.ts";
-import { mockTrainingPlans, mockWorkoutSessions, mockHealthMetrics } from "./mock/health.mock.ts";
-
-const delay = (): Promise<void> => new Promise(r => setTimeout(r, 180));
-
-// GET /api/v1/health/training-plans
-export async function getTrainingPlans(): Promise<TrainingPlan[]> {
-  return mockTrainingPlans;
+export function createTrainingPlan(
+  input: CreateTrainingPlanInput,
+  options: ApiRequestOptions = {},
+): Promise<TrainingPlan> {
+  return apiClient.post<TrainingPlan>("/health/training-plans", input, options);
 }
 
-// GET /api/v1/health/training-plans/:id
-export async function getTrainingPlan(id: string): Promise<TrainingPlan | null> {
-  return mockTrainingPlans.find(p => p.id === id) ?? null;
+export function updateTrainingPlan(
+  id: string,
+  input: UpdateTrainingPlanInput,
+  options: ApiRequestOptions = {},
+): Promise<TrainingPlan> {
+  return apiClient.patch<TrainingPlan>(
+    `/health/training-plans/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/health/workouts?days=14
-export async function getWorkoutSessions(days = 14): Promise<WorkoutSession[]> {
-  return mockWorkoutSessions.slice(0, days);
+export function deleteTrainingPlan(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/health/training-plans/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/health/metrics?days=30
-export async function getHealthMetrics(days = 30): Promise<HealthMetric[]> {
-  return mockHealthMetrics.slice(-days);
+export type CreateWorkoutSessionInput = Omit<WorkoutSession, "id">;
+export type UpdateWorkoutSessionInput = Partial<CreateWorkoutSessionInput>;
+
+export function createWorkoutSession(
+  input: CreateWorkoutSessionInput,
+  options: ApiRequestOptions = {},
+): Promise<WorkoutSession> {
+  return apiClient.post<WorkoutSession>("/health/workouts", input, options);
 }
 
-// GET /api/v1/health/metrics/latest
-export async function getLatestHealthMetric(): Promise<HealthMetric | null> {
-  return mockHealthMetrics[mockHealthMetrics.length - 1] ?? null;
+export function updateWorkoutSession(
+  id: string,
+  input: UpdateWorkoutSessionInput,
+  options: ApiRequestOptions = {},
+): Promise<WorkoutSession> {
+  return apiClient.patch<WorkoutSession>(
+    `/health/workouts/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
-*/
-// TO BE CLEANED: END
+
+export function deleteWorkoutSession(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/health/workouts/${encodeId(id)}`, options);
+}
+
+export type CreateHealthMetricInput = Omit<HealthMetric, "id">;
+export type UpdateHealthMetricInput = Partial<CreateHealthMetricInput>;
+
+export function createHealthMetric(
+  input: CreateHealthMetricInput,
+  options: ApiRequestOptions = {},
+): Promise<HealthMetric> {
+  return apiClient.post<HealthMetric>("/health/metrics", input, options);
+}
+
+export function updateHealthMetric(
+  id: string,
+  input: UpdateHealthMetricInput,
+  options: ApiRequestOptions = {},
+): Promise<HealthMetric> {
+  return apiClient.patch<HealthMetric>(
+    `/health/metrics/${encodeId(id)}`,
+    input,
+    options,
+  );
+}
+
+export function deleteHealthMetric(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/health/metrics/${encodeId(id)}`, options);
+}

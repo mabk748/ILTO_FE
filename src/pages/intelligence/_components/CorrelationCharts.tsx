@@ -95,6 +95,14 @@ type AllData = {
   netWorth: CorrelationPoint[];
 };
 
+function EmptyChart({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-[200px] items-center justify-center rounded-md border border-dashed border-border px-4 text-center text-xs text-muted-foreground">
+      {children}
+    </div>
+  );
+}
+
 export default function CorrelationCharts() {
   const {
     data,
@@ -103,13 +111,13 @@ export default function CorrelationCharts() {
     refetch,
   } = useQuery({
     queryKey: ["intelligence", "comparisons"],
-    queryFn: async (): Promise<AllData> => {
+    queryFn: async ({ signal }): Promise<AllData> => {
       const [sleepVsCommits, budgetVsVelocity, hrvVsRpe, netWorth] =
         await Promise.all([
-          getSleepVsCommits(),
-          getBudgetVsVelocity(),
-          getHrvVsRpe(),
-          getNetWorthTrend(),
+          getSleepVsCommits({ signal }),
+          getBudgetVsVelocity({ signal }),
+          getHrvVsRpe({ signal }),
+          getNetWorthTrend({ signal }),
         ]);
       return { sleepVsCommits, budgetVsVelocity, hrvVsRpe, netWorth };
     },
@@ -149,58 +157,67 @@ export default function CorrelationCharts() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={200}>
-                <LineChart
-                  data={chartData[i]}
-                  margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="oklch(0.25 0.04 265)"
-                  />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
-                    tickLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    yAxisId="left"
-                    tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    yAxisId="right"
-                    orientation="right"
-                    tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "oklch(0.14 0.025 265)",
-                      border: "1px solid oklch(0.25 0.04 265)",
-                      borderRadius: "6px",
-                      fontSize: "11px",
-                    }}
-                    labelStyle={{ color: "oklch(0.95 0.01 270)" }}
-                  />
-                  <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-                  {spec.lines.map((l) => (
-                    <Line
-                      key={l.key}
-                      type="monotone"
-                      dataKey={l.key}
-                      name={l.label}
-                      stroke={l.color}
-                      yAxisId={l.yAxisId}
-                      dot={false}
-                      strokeWidth={1.5}
+              {chartData[i].length === 0 ? (
+                <EmptyChart>
+                  {spec.title === "Sleep vs Commits"
+                    ? "No dated sleep and commit observations are stored yet."
+                    : "No stored comparison points yet."}
+                </EmptyChart>
+              ) : (
+                <ResponsiveContainer width="100%" height={200}>
+                  <LineChart
+                    data={chartData[i]}
+                    margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="oklch(0.25 0.04 265)"
                     />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
+                      tickLine={false}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      yAxisId="left"
+                      tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      yAxisId="right"
+                      orientation="right"
+                      tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: "oklch(0.14 0.025 265)",
+                        border: "1px solid oklch(0.25 0.04 265)",
+                        borderRadius: "6px",
+                        fontSize: "11px",
+                      }}
+                      labelStyle={{ color: "oklch(0.95 0.01 270)" }}
+                    />
+                    <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                    {spec.lines.map((l) => (
+                      <Line
+                        key={l.key}
+                        type="monotone"
+                        dataKey={l.key}
+                        name={l.label}
+                        stroke={l.color}
+                        yAxisId={l.yAxisId}
+                        dot={false}
+                        strokeWidth={1.5}
+                        connectNulls={false}
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -216,80 +233,93 @@ export default function CorrelationCharts() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart
-                data={data?.netWorth ?? []}
-                margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
-              >
-                <defs>
-                  <linearGradient id="colAssets" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colNetWorth" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="oklch(0.25 0.04 265)"
-                />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "oklch(0.14 0.025 265)",
-                    border: "1px solid oklch(0.25 0.04 265)",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                  }}
-                  formatter={(value: unknown) => [
-                    typeof value === "number"
-                      ? `€${value.toFixed(0)}`
-                      : String(value ?? ""),
-                    "",
-                  ]}
-                />
-                <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
-                <Area
-                  type="monotone"
-                  dataKey="assets"
-                  name="Assets"
-                  stroke="#34d399"
-                  fill="url(#colAssets)"
-                  strokeWidth={1.5}
-                  dot={false}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="net_worth"
-                  name="Net Worth"
-                  stroke="#a78bfa"
-                  fill="url(#colNetWorth)"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="liabilities"
-                  name="Liabilities"
-                  stroke="#f87171"
-                  strokeWidth={1}
-                  strokeDasharray="4 2"
-                  dot={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {(data?.netWorth ?? []).length === 0 ? (
+              <EmptyChart>No stored net-worth points yet.</EmptyChart>
+            ) : (
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart
+                  data={data?.netWorth ?? []}
+                  margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colAssets" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient
+                      id="colNetWorth"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#a78bfa" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#a78bfa" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="oklch(0.25 0.04 265)"
+                  />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "oklch(0.14 0.025 265)",
+                      border: "1px solid oklch(0.25 0.04 265)",
+                      borderRadius: "6px",
+                      fontSize: "11px",
+                    }}
+                    formatter={(value: unknown) => [
+                      typeof value === "number"
+                        ? `€${value.toFixed(0)}`
+                        : String(value ?? ""),
+                      "",
+                    ]}
+                  />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: "11px" }} />
+                  <Area
+                    type="monotone"
+                    dataKey="assets"
+                    name="Assets"
+                    stroke="#34d399"
+                    fill="url(#colAssets)"
+                    strokeWidth={1.5}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="net_worth"
+                    name="Net Worth"
+                    stroke="#a78bfa"
+                    fill="url(#colNetWorth)"
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="liabilities"
+                    name="Liabilities"
+                    stroke="#f87171"
+                    strokeWidth={1}
+                    strokeDasharray="4 2"
+                    dot={false}
+                    connectNulls={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

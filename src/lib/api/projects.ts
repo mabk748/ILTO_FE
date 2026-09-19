@@ -1,3 +1,7 @@
+import { getArray } from "./resource.ts";
+/** Implemented Projects contract: see backend docs/projects-module.md. */
+import { apiClient, type ApiRequestOptions } from "./client.ts";
+import { encodeId, getNullable, getPage } from "./resource.ts";
 import type {
   Project,
   Sprint,
@@ -6,141 +10,192 @@ import type {
   PaginatedResponse,
 } from "./types.ts";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE ??
-  "https://n8n-pr.mhabproperties.org/webhook/api/v1/projects";
-
-async function getJson<T>(resource: string): Promise<T> {
-  const res = await fetch(`${API_BASE}?resource=${resource}`);
-  if (!res.ok)
-    throw new Error(`GET /projects?resource=${resource} failed: ${res.status}`);
-  return res.json();
+export function getProjects(
+  pagination: { page?: number; per_page?: number } = {},
+  options: ApiRequestOptions = {},
+): Promise<PaginatedResponse<Project>> {
+  return getPage<Project>(`/projects`, {
+    ...options,
+    query: { ...options.query, ...{ page: 1, per_page: 100, ...pagination } },
+  });
 }
 
-// GET /api/v1/projects?page=1&per_page=20
-export async function getProjects(): Promise<PaginatedResponse<Project>> {
-  const project = await getJson<Project[]>("project");
-  return {
-    data: project,
-    total: project.length,
-    page: 1,
-    per_page: 20,
-    total_pages: 1,
-  };
+/** Existing overview screens need the complete project list, not just page one. */
+export async function getAllProjects(
+  options: ApiRequestOptions = {},
+): Promise<Project[]> {
+  const first = await getProjects({ page: 1, per_page: 100 }, options);
+  const projects = [...first.data];
+  for (let page = 2; page <= first.total_pages; page += 1) {
+    options.signal?.throwIfAborted();
+    const response = await getProjects(
+      { page, per_page: first.per_page },
+      options,
+    );
+    projects.push(...response.data);
+  }
+  return projects;
 }
 
-// GET /api/v1/projects/:id
-export async function getProject(id: string): Promise<Project | null> {
-  const project = await getJson<Project[]>("project");
-  return project.find((p) => p.id === id) ?? null;
+export function getProject(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<Project | null> {
+  return getNullable<Project>(`/projects/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/sprints?project_id=:id
-export async function getSprints(projectId?: string): Promise<Sprint[]> {
-  const sprint = await getJson<Sprint[]>("sprint");
-  return projectId ? sprint.filter((s) => s.project_id === projectId) : sprint;
+export function getSprints(
+  projectId?: string,
+  options: ApiRequestOptions = {},
+): Promise<Sprint[]> {
+  return getArray<Sprint>(`/projects/sprints`, {
+    ...options,
+    query: { ...options.query, ...{ project_id: projectId } },
+  });
 }
 
-// GET /api/v1/tasks?sprint_id=:id&project_id=:id&status=:status
-export async function getTasks(filters?: {
-  sprintId?: string;
-  projectId?: string;
-  status?: string;
-}): Promise<Task[]> {
-  const task = await getJson<Task[]>("task");
-  let tasks = [...task];
-  if (filters?.sprintId)
-    tasks = tasks.filter((t) => t.sprint_id === filters.sprintId);
-  if (filters?.projectId)
-    tasks = tasks.filter((t) => t.project_id === filters.projectId);
-  if (filters?.status) tasks = tasks.filter((t) => t.status === filters.status);
-  return tasks;
+export function getTasks(
+  filters: {
+    sprintId?: string;
+    projectId?: string;
+    status?: Task["status"];
+  } = {},
+  options: ApiRequestOptions = {},
+): Promise<Task[]> {
+  return getArray<Task>(`/projects/tasks`, {
+    ...options,
+    query: {
+      ...options.query,
+      ...{
+        sprint_id: filters.sprintId,
+        project_id: filters.projectId,
+        status: filters.status,
+      },
+    },
+  });
 }
 
-// GET /api/v1/milestones?project_id=:id
-export async function getMilestones(projectId?: string): Promise<Milestone[]> {
-  const milestone = await getJson<Milestone[]>("milestone");
-  return projectId
-    ? milestone.filter((m) => m.project_id === projectId)
-    : milestone;
+export function getMilestones(
+  projectId?: string,
+  options: ApiRequestOptions = {},
+): Promise<Milestone[]> {
+  return getArray<Milestone>(`/projects/milestones`, {
+    ...options,
+    query: { ...options.query, ...{ project_id: projectId } },
+  });
 }
 
-// TO BE CLEANED: START
-/*
-// GET /api/v1/appearance/wardrobe
-export async function getWardrobeItems(): Promise<WardrobeItem[]> {
-  return getJson<WardrobeItem[]>("wardrobe-item");
+export type CreateProjectInput = Omit<
+  Project,
+  "id" | "created_at" | "updated_at"
+>;
+export type UpdateProjectInput = Partial<CreateProjectInput>;
+
+export function createProject(
+  input: CreateProjectInput,
+  options: ApiRequestOptions = {},
+): Promise<Project> {
+  return apiClient.post<Project>("/projects", input, options);
 }
 
-// GET /api/v1/appearance/outfits?limit=20
-export async function getOutfitLogs(limit = 20): Promise<OutfitLog[]> {
-  const outfit = await getJson<OutfitLog[]>("outfit-log");
-  return outfit.slice(0, limit);
+export function updateProject(
+  id: string,
+  input: UpdateProjectInput,
+  options: ApiRequestOptions = {},
+): Promise<Project> {
+  return apiClient.patch<Project>(`/projects/${encodeId(id)}`, input, options);
 }
 
-// GET /api/v1/appearance/grooming
-export async function getGroomingRoutines(): Promise<GroomingRoutine[]> {
-  return getJson<GroomingRoutine[]>("grooming-routine");
+export function deleteProject(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/projects/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/appearance/spend
-export async function getAppearanceSpend(): Promise<AppearanceSpend[]> {
-  return getJson<AppearanceSpend[]>("appearance-spend");
-}
-*/
-// TO BE CLEANED: END
+export type CreateSprintInput = Omit<Sprint, "id" | "created_at" | "velocity">;
+export type UpdateSprintInput = Partial<CreateSprintInput>;
 
-// TO BE CLEANED: START
-/**
- * Projects Domain API
- *
- * INTEGRATION GUIDE:
- * Base URL: http://your-server:8000/api/v1/projects
- *
- * To connect to FastAPI backend:
- * 1. Set VITE_API_BASE_URL in .env.local
- * 2. Replace mock return statements with: return fetch(`${BASE_URL}/...`).then(r => r.json())
- * 3. Add auth header: headers: { Authorization: `Bearer ${token}` }
-
-
-import type { Project, Sprint, Task, Milestone, PaginatedResponse } from "./types.ts";
-import { mockProjects, mockSprints, mockTasks, mockMilestones } from "./mock/projects.mock.ts";
-
-const SIMULATED_DELAY = 200;
-const delay = (): Promise<void> => new Promise(r => setTimeout(r, SIMULATED_DELAY));
-
-// GET /api/v1/projects?page=1&per_page=20
-export async function getProjects(): Promise<PaginatedResponse<Project>> {
-  await delay();
-  return { data: mockProjects, total: mockProjects.length, page: 1, per_page: 20, total_pages: 1 };
+export function createSprint(
+  input: CreateSprintInput,
+  options: ApiRequestOptions = {},
+): Promise<Sprint> {
+  return apiClient.post<Sprint>("/projects/sprints", input, options);
 }
 
-// GET /api/v1/projects/:id
-export async function getProject(id: string): Promise<Project | null> {
-  await delay();
-  return mockProjects.find(p => p.id === id) ?? null;
+export function updateSprint(
+  id: string,
+  input: UpdateSprintInput,
+  options: ApiRequestOptions = {},
+): Promise<Sprint> {
+  return apiClient.patch<Sprint>(
+    `/projects/sprints/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/sprints?project_id=:id
-export async function getSprints(projectId?: string): Promise<Sprint[]> {
-  await delay();
-  return projectId ? mockSprints.filter(s => s.project_id === projectId) : mockSprints;
+export function deleteSprint(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/projects/sprints/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/tasks?sprint_id=:id&project_id=:id&status=:status
-export async function getTasks(filters?: { sprintId?: string; projectId?: string; status?: string }): Promise<Task[]> {
-  await delay();
-  let tasks = [...mockTasks];
-  if (filters?.sprintId) tasks = tasks.filter(t => t.sprint_id === filters.sprintId);
-  if (filters?.projectId) tasks = tasks.filter(t => t.project_id === filters.projectId);
-  if (filters?.status) tasks = tasks.filter(t => t.status === filters.status);
-  return tasks;
+export type CreateTaskInput = Omit<Task, "id" | "created_at" | "updated_at">;
+export type UpdateTaskInput = Partial<CreateTaskInput>;
+
+export function createTask(
+  input: CreateTaskInput,
+  options: ApiRequestOptions = {},
+): Promise<Task> {
+  return apiClient.post<Task>("/projects/tasks", input, options);
 }
 
-// GET /api/v1/milestones?project_id=:id
-export async function getMilestones(projectId?: string): Promise<Milestone[]> {
-  await delay();
-  return projectId ? mockMilestones.filter(m => m.project_id === projectId) : mockMilestones;
+export function updateTask(
+  id: string,
+  input: UpdateTaskInput,
+  options: ApiRequestOptions = {},
+): Promise<Task> {
+  return apiClient.patch<Task>(
+    `/projects/tasks/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
-*/
-// TO BE CLEANED: END
+
+export function deleteTask(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/projects/tasks/${encodeId(id)}`, options);
+}
+
+export type CreateMilestoneInput = Omit<Milestone, "id" | "created_at">;
+export type UpdateMilestoneInput = Partial<CreateMilestoneInput>;
+
+export function createMilestone(
+  input: CreateMilestoneInput,
+  options: ApiRequestOptions = {},
+): Promise<Milestone> {
+  return apiClient.post<Milestone>("/projects/milestones", input, options);
+}
+
+export function updateMilestone(
+  id: string,
+  input: UpdateMilestoneInput,
+  options: ApiRequestOptions = {},
+): Promise<Milestone> {
+  return apiClient.patch<Milestone>(
+    `/projects/milestones/${encodeId(id)}`,
+    input,
+    options,
+  );
+}
+
+export function deleteMilestone(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/projects/milestones/${encodeId(id)}`, options);
+}

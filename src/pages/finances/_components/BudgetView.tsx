@@ -14,6 +14,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import FinanceResourceControls from "./FinanceResourceControls.tsx";
 
 interface Props {
   categories: BudgetCategory[];
@@ -23,7 +24,7 @@ interface Props {
 export default function BudgetView({ categories, transactions }: Props) {
   const totalSpent = categories.reduce((a, c) => a + c.spent_this_month, 0);
   const totalLimit = categories.reduce((a, c) => a + c.monthly_limit, 0);
-  const pct = Math.round((totalSpent / totalLimit) * 100);
+  const pct = totalLimit > 0 ? Math.round((totalSpent / totalLimit) * 100) : 0;
 
   const pieData = categories
     .filter((c) => c.spent_this_month > 0)
@@ -49,7 +50,9 @@ export default function BudgetView({ categories, transactions }: Props) {
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            {pct}% of monthly budget
+            {totalLimit > 0
+              ? `${pct}% of monthly budget`
+              : "No monthly limits set"}
           </p>
         </CardContent>
       </Card>
@@ -58,39 +61,58 @@ export default function BudgetView({ categories, transactions }: Props) {
         {/* Category rows */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Categories</CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-sm">Categories</CardTitle>
+              <FinanceResourceControls
+                target={{ kind: "category" }}
+                categories={categories}
+              />
+            </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {categories.map((c) => {
-              const p = Math.round(
-                (c.spent_this_month / c.monthly_limit) * 100,
-              );
-              return (
-                <div key={c.id} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-2 h-2 rounded-full shrink-0"
-                        style={{ background: c.color }}
-                      />
-                      <span className="text-foreground">{c.name}</span>
+            {categories.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No budget categories yet.
+              </p>
+            ) : (
+              categories.map((c) => {
+                const p =
+                  c.monthly_limit > 0
+                    ? Math.round((c.spent_this_month / c.monthly_limit) * 100)
+                    : 0;
+                return (
+                  <div key={c.id} className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ background: c.color }}
+                        />
+                        <span className="text-foreground">{c.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <span>
+                          €{c.spent_this_month} / €{c.monthly_limit}
+                        </span>
+                        <FinanceResourceControls
+                          target={{ kind: "category", record: c }}
+                          categories={categories}
+                        />
+                      </div>
                     </div>
-                    <span className="text-muted-foreground">
-                      €{c.spent_this_month} / €{c.monthly_limit}
-                    </span>
+                    <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full ${p > 90 ? "bg-red-500" : p > 70 ? "bg-yellow-500" : "bg-primary"}`}
+                        style={{
+                          width: `${Math.min(p, 100)}%`,
+                          background: p <= 70 ? c.color : undefined,
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${p > 90 ? "bg-red-500" : p > 70 ? "bg-yellow-500" : "bg-primary"}`}
-                      style={{
-                        width: `${Math.min(p, 100)}%`,
-                        background: p <= 70 ? c.color : undefined,
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </CardContent>
         </Card>
 
@@ -100,37 +122,43 @@ export default function BudgetView({ categories, transactions }: Props) {
             <CardTitle className="text-sm">Spending Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={55}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                  formatter={(v: unknown) => [`€${v}`, ""]}
-                />
-                <Legend
-                  iconType="circle"
-                  iconSize={8}
-                  wrapperStyle={{ fontSize: 11 }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {pieData.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-20">
+                No spending to chart.
+              </p>
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    {pieData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      fontSize: 12,
+                    }}
+                    formatter={(v: unknown) => [`€${v}`, ""]}
+                  />
+                  <Legend
+                    iconType="circle"
+                    iconSize={8}
+                    wrapperStyle={{ fontSize: 11 }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -138,30 +166,53 @@ export default function BudgetView({ categories, transactions }: Props) {
       {/* Recent transactions */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Recent Transactions</CardTitle>
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="text-sm">
+              Transactions (newest first)
+            </CardTitle>
+            <FinanceResourceControls
+              target={{ kind: "transaction" }}
+              categories={categories}
+            />
+          </div>
         </CardHeader>
         <CardContent className="space-y-2">
-          {transactions.slice(0, 10).map((tx) => (
-            <div
-              key={tx.id}
-              className="flex items-center justify-between gap-2 py-1 border-b border-border last:border-0"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs text-muted-foreground shrink-0">
-                  {format(new Date(tx.date), "MMM d")}
-                </span>
-                <span className="text-sm truncate">{tx.description}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-                  {tx.tags[0] ?? ""}
-                </span>
-              </div>
-              <span
-                className={`text-sm font-medium shrink-0 ${tx.type === "income" ? "text-green-400" : "text-red-400"}`}
+          {transactions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No transactions yet.
+            </p>
+          ) : (
+            transactions.map((tx) => (
+              <div
+                key={tx.id}
+                className="flex items-center justify-between gap-2 py-1 border-b border-border last:border-0"
               >
-                {tx.type === "income" ? "+" : "-"}€{tx.amount}
-              </span>
-            </div>
-          ))}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {format(new Date(tx.date), "MMM d")}
+                  </span>
+                  <span className="text-sm truncate">{tx.description}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                    {tx.tags[0] ?? ""}
+                  </span>
+                </div>
+                <span
+                  className={`text-sm font-medium shrink-0 ${tx.type === "income" ? "text-green-400" : "text-red-400"}`}
+                >
+                  {tx.type === "income"
+                    ? "+"
+                    : tx.type === "expense"
+                      ? "-"
+                      : ""}
+                  €{tx.amount}
+                </span>
+                <FinanceResourceControls
+                  target={{ kind: "transaction", record: tx }}
+                  categories={categories}
+                />
+              </div>
+            ))
+          )}
         </CardContent>
       </Card>
     </div>

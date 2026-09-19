@@ -31,12 +31,12 @@ export default function WorkPage() {
     refetch,
   } = useQuery({
     queryKey: ["work"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [milestones, certs, deadlines, compliance] = await Promise.all([
-        getCareerMilestones(),
-        getCertifications(),
-        getDeadlines(),
-        getComplianceItems(),
+        getCareerMilestones({ signal }),
+        getCertifications({ signal }),
+        getDeadlines({ signal }),
+        getComplianceItems({ signal }),
       ]);
       return { milestones, certs, deadlines, compliance };
     },

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils.ts";
 import type { DomainName } from "@/lib/api/types.ts";
 import { useSettings } from "@/components/providers/settings-context.ts";
 import { DEFAULT_SETTINGS, normalizeSettings } from "@/lib/settings.ts";
+import { normalizeApiBaseUrl } from "@/lib/api/config.ts";
 
 const DOMAIN_META: { key: DomainName; label: string; description: string }[] = [
   {
@@ -74,25 +75,38 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState(persistedSettings);
 
   const handleSave = () => {
-    const apiBaseUrl = settings.apiBaseUrl.trim();
-    if (apiBaseUrl) {
-      try {
-        const url = new URL(apiBaseUrl);
-        if (!["http:", "https:"].includes(url.protocol)) throw new Error();
-      } catch {
-        toast.error("Enter a valid HTTP(S) API URL");
-        return;
-      }
+    let apiBaseUrl = settings.apiBaseUrl.trim();
+    try {
+      if (apiBaseUrl) apiBaseUrl = normalizeApiBaseUrl(apiBaseUrl);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Enter a valid API URL",
+      );
+      return;
     }
 
-    updateSettings({ ...settings, apiBaseUrl });
-    toast.success("Settings saved");
+    try {
+      const nextSettings = { ...settings, apiBaseUrl };
+      updateSettings(nextSettings);
+      setSettings(nextSettings);
+      toast.success("Settings saved");
+    } catch {
+      toast.error(
+        "Could not save settings. Check that browser storage is available.",
+      );
+    }
   };
 
   const handleReset = () => {
-    resetSettings();
-    setSettings(normalizeSettings(DEFAULT_SETTINGS));
-    toast.info("Settings reset to defaults");
+    try {
+      resetSettings();
+      setSettings(normalizeSettings(DEFAULT_SETTINGS));
+      toast.info("Settings reset to defaults");
+    } catch {
+      toast.error(
+        "Could not reset settings. Check that browser storage is available.",
+      );
+    }
   };
 
   const toggleDomain = (key: DomainName) => {
@@ -142,8 +156,8 @@ export default function SettingsPage() {
             API Configuration
           </CardTitle>
           <CardDescription className="text-xs">
-            Store the backend URL you plan to use for the upcoming API
-            integration.
+            Save your backend base URL, including its API prefix. Leave blank to
+            use the environment default.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -154,7 +168,7 @@ export default function SettingsPage() {
             <Input
               id="apiBaseUrl"
               type="url"
-              placeholder="http://localhost:8000/api/v1"
+              placeholder="http://localhost:8001/api/v1"
               value={settings.apiBaseUrl}
               onChange={(e) =>
                 setSettings((prev) => ({
@@ -166,25 +180,33 @@ export default function SettingsPage() {
             />
             <p className="text-[11px] text-muted-foreground">
               Example:{" "}
-              <span className="font-mono">http://your-server:8000/api/v1</span>
+              <span className="font-mono">http://localhost:8001/api/v1</span>.
+              Use localhost for both apps so session cookies work. Only save a
+              backend URL you trust with your owner credentials.
             </p>
           </div>
 
           <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1">
-            <p className="text-xs font-semibold">Connection status</p>
+            <p className="text-xs font-semibold">Saved API URL</p>
             <div className="flex items-center gap-2">
               <div
                 className={cn(
                   "w-2 h-2 rounded-full",
-                  settings.apiBaseUrl ? "bg-orange-400" : "bg-muted-foreground",
+                  persistedSettings.apiBaseUrl
+                    ? "bg-orange-400"
+                    : "bg-muted-foreground",
                 )}
               />
               <span className="text-xs text-muted-foreground">
-                {settings.apiBaseUrl
-                  ? "URL saved for integration — current domain clients are unchanged"
-                  : "No integration URL configured"}
+                {persistedSettings.apiBaseUrl ||
+                  "Environment default (if configured)"}
               </span>
             </div>
+            <p className="text-[11px] text-muted-foreground">
+              Saving a different URL clears cached data and checks the session
+              on that backend. This does not sign you out of the previous
+              backend.
+            </p>
           </div>
         </CardContent>
       </Card>

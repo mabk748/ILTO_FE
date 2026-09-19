@@ -31,12 +31,12 @@ export default function LogisticsPage() {
     refetch,
   } = useQuery({
     queryKey: ["logistics"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [trips, checklists, documents, events] = await Promise.all([
-        getTrips(),
-        getChecklists(),
-        getDocuments(),
-        getLogisticsEvents(),
+        getTrips({ signal }),
+        getChecklists({ signal }),
+        getDocuments({ signal }),
+        getLogisticsEvents({ signal }),
       ]);
       return { trips, checklists, documents, events };
     },

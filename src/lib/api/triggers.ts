@@ -1,10 +1,7 @@
-/**
- * Trigger Engine API — IF/THEN rules across domains
- *
- * INTEGRATION GUIDE:
- * Base URL: http://your-server:8000/api/v1/triggers
- * Replace mock arrays with fetch() calls when FastAPI backend is ready.
- */
+import { getArray } from "./resource.ts";
+import { apiClient, type ApiRequestOptions } from "./client.ts";
+import { encodeId } from "./resource.ts";
+/** Trigger rules and log records are owned and evaluated by the backend. */
 
 import type { DomainName } from "./types.ts";
 
@@ -22,7 +19,7 @@ export interface TriggerCondition {
 export interface TriggerAction {
   type: TriggerActionType;
   message: string;
-  target_domain?: DomainName;
+  target_domain: DomainName | null;
 }
 
 export interface TriggerRule {
@@ -205,259 +202,52 @@ export const DOMAIN_METRICS: Record<DomainName, MetricDef[]> = {
   ],
 };
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+export type CreateTriggerRuleInput = Omit<
+  TriggerRule,
+  "id" | "created_at" | "last_triggered" | "trigger_count"
+>;
+export type UpdateTriggerRuleInput = Partial<CreateTriggerRuleInput>;
 
-const now = new Date();
-const ago = (h: number) => new Date(now.getTime() - h * 3600000).toISOString();
-const daysAgo = (d: number) =>
-  new Date(now.getTime() - d * 86400000).toISOString();
-
-let mockRules: TriggerRule[] = [
-  {
-    id: "r1",
-    name: "Budget Overage Alert",
-    description: "Fire when monthly budget spend crosses 90%",
-    enabled: true,
-    condition: {
-      domain: "finances",
-      metric: "budget_pct",
-      operator: ">",
-      threshold: 90,
-      unit: "%",
-    },
-    action: {
-      type: "flag",
-      message: "Budget overage detected — review discretionary spend",
-      target_domain: "finances",
-    },
-    created_at: daysAgo(14),
-    last_triggered: ago(8),
-    trigger_count: 3,
-  },
-  {
-    id: "r2",
-    name: "Poor Sleep → Recovery Mode",
-    description: "Flag when sleep drops below 6h",
-    enabled: true,
-    condition: {
-      domain: "health",
-      metric: "sleep_hours",
-      operator: "<",
-      threshold: 6,
-      unit: "h",
-    },
-    action: {
-      type: "notify",
-      message: "Sleep deficit — consider lighter training & earlier sleep",
-      target_domain: "health",
-    },
-    created_at: daysAgo(21),
-    last_triggered: ago(36),
-    trigger_count: 7,
-  },
-  {
-    id: "r3",
-    name: "Overdue Deadline Warning",
-    description: "Alert when any work deadline slips to overdue",
-    enabled: true,
-    condition: {
-      domain: "work",
-      metric: "overdue_deadlines",
-      operator: ">=",
-      threshold: 1,
-      unit: "count",
-    },
-    action: {
-      type: "notify",
-      message: "Overdue work deadline detected — reprioritise tasks",
-      target_domain: "work",
-    },
-    created_at: daysAgo(10),
-    last_triggered: ago(4),
-    trigger_count: 2,
-  },
-  {
-    id: "r4",
-    name: "Node Fleet Degraded",
-    description: "Alert when less than 80% of nodes are online",
-    enabled: true,
-    condition: {
-      domain: "infrastructure",
-      metric: "nodes_online_pct",
-      operator: "<",
-      threshold: 80,
-      unit: "%",
-    },
-    action: {
-      type: "notify",
-      message: "Node fleet health degraded — check Tailscale and node status",
-      target_domain: "infrastructure",
-    },
-    created_at: daysAgo(30),
-    last_triggered: ago(4),
-    trigger_count: 1,
-  },
-  {
-    id: "r5",
-    name: "SRS Card Backlog",
-    description: "Remind when >10 cards are due for review",
-    enabled: false,
-    condition: {
-      domain: "learning",
-      metric: "cards_due",
-      operator: ">",
-      threshold: 10,
-      unit: "cards",
-    },
-    action: {
-      type: "log",
-      message: "SRS backlog growing — schedule a review session",
-    },
-    created_at: daysAgo(7),
-    last_triggered: null,
-    trigger_count: 0,
-  },
-];
-
-let mockLog: TriggerLogEntry[] = [
-  {
-    id: "l1",
-    rule_id: "r1",
-    rule_name: "Budget Overage Alert",
-    domain: "finances",
-    triggered_at: ago(8),
-    condition_summary: "Budget spent (92%) > 90%",
-    action_summary:
-      "Flagged: Budget overage detected — review discretionary spend",
-    resolved: false,
-  },
-  {
-    id: "l2",
-    rule_id: "r4",
-    rule_name: "Node Fleet Degraded",
-    domain: "infrastructure",
-    triggered_at: ago(4),
-    condition_summary: "Nodes online (75%) < 80%",
-    action_summary:
-      "Notified: Node fleet health degraded — check Tailscale and node status",
-    resolved: false,
-  },
-  {
-    id: "l3",
-    rule_id: "r3",
-    rule_name: "Overdue Deadline Warning",
-    domain: "work",
-    triggered_at: ago(4),
-    condition_summary: "Overdue deadlines (1) ≥ 1",
-    action_summary:
-      "Notified: Overdue work deadline detected — reprioritise tasks",
-    resolved: false,
-  },
-  {
-    id: "l4",
-    rule_id: "r2",
-    rule_name: "Poor Sleep → Recovery Mode",
-    domain: "health",
-    triggered_at: ago(36),
-    condition_summary: "Sleep hours (5.4h) < 6h",
-    action_summary:
-      "Notified: Sleep deficit — consider lighter training & earlier sleep",
-    resolved: true,
-  },
-  {
-    id: "l5",
-    rule_id: "r1",
-    rule_name: "Budget Overage Alert",
-    domain: "finances",
-    triggered_at: daysAgo(3),
-    condition_summary: "Budget spent (91%) > 90%",
-    action_summary:
-      "Flagged: Budget overage detected — review discretionary spend",
-    resolved: true,
-  },
-  {
-    id: "l6",
-    rule_id: "r2",
-    rule_name: "Poor Sleep → Recovery Mode",
-    domain: "health",
-    triggered_at: daysAgo(4),
-    condition_summary: "Sleep hours (5.1h) < 6h",
-    action_summary:
-      "Notified: Sleep deficit — consider lighter training & earlier sleep",
-    resolved: true,
-  },
-  {
-    id: "l7",
-    rule_id: "r1",
-    rule_name: "Budget Overage Alert",
-    domain: "finances",
-    triggered_at: daysAgo(8),
-    condition_summary: "Budget spent (93%) > 90%",
-    action_summary:
-      "Flagged: Budget overage detected — review discretionary spend",
-    resolved: true,
-  },
-  {
-    id: "l8",
-    rule_id: "r2",
-    rule_name: "Poor Sleep → Recovery Mode",
-    domain: "health",
-    triggered_at: daysAgo(9),
-    condition_summary: "Sleep hours (4.9h) < 6h",
-    action_summary:
-      "Notified: Sleep deficit — consider lighter training & earlier sleep",
-    resolved: true,
-  },
-];
-
-const SIMULATED_DELAY = 150;
-const delay = () => new Promise<void>((r) => setTimeout(r, SIMULATED_DELAY));
-
-export async function getTriggerRules(): Promise<TriggerRule[]> {
-  await delay();
-  return [...mockRules];
+export function getTriggerRules(
+  options: ApiRequestOptions = {},
+): Promise<TriggerRule[]> {
+  return getArray<TriggerRule>("/triggers/rules", options);
 }
-
-export async function createTriggerRule(
-  rule: Omit<
-    TriggerRule,
-    "id" | "created_at" | "last_triggered" | "trigger_count"
-  >,
+export function createTriggerRule(
+  input: CreateTriggerRuleInput,
+  options: ApiRequestOptions = {},
 ): Promise<TriggerRule> {
-  await delay();
-  const newRule: TriggerRule = {
-    ...rule,
-    id: `r${Date.now()}`,
-    created_at: new Date().toISOString(),
-    last_triggered: null,
-    trigger_count: 0,
-  };
-  mockRules = [...mockRules, newRule];
-  return newRule;
+  return apiClient.post<TriggerRule>("/triggers/rules", input, options);
 }
-
-export async function updateTriggerRule(
+export function updateTriggerRule(
   id: string,
-  patch: Partial<TriggerRule>,
-): Promise<void> {
-  await delay();
-  mockRules = mockRules.map((r) => (r.id === id ? { ...r, ...patch } : r));
-}
-
-export async function deleteTriggerRule(id: string): Promise<void> {
-  await delay();
-  mockRules = mockRules.filter((r) => r.id !== id);
-}
-
-export async function getTriggerLog(): Promise<TriggerLogEntry[]> {
-  await delay();
-  return [...mockLog].sort(
-    (a, b) =>
-      new Date(b.triggered_at).getTime() - new Date(a.triggered_at).getTime(),
+  input: UpdateTriggerRuleInput,
+  options: ApiRequestOptions = {},
+): Promise<TriggerRule> {
+  return apiClient.patch<TriggerRule>(
+    `/triggers/rules/${encodeId(id)}`,
+    input,
+    options,
   );
 }
-
-export async function resolveTriggerLogEntry(id: string): Promise<void> {
-  await delay();
-  mockLog = mockLog.map((e) => (e.id === id ? { ...e, resolved: true } : e));
+export function deleteTriggerRule(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/triggers/rules/${encodeId(id)}`, options);
+}
+export function getTriggerLog(
+  options: ApiRequestOptions = {},
+): Promise<TriggerLogEntry[]> {
+  return getArray<TriggerLogEntry>("/triggers/log", options);
+}
+export function resolveTriggerLogEntry(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<TriggerLogEntry> {
+  return apiClient.patch<TriggerLogEntry>(
+    `/triggers/log/${encodeId(id)}`,
+    { resolved: true },
+    options,
+  );
 }

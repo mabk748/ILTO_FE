@@ -7,6 +7,7 @@ import type {
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { formatDistanceToNow, format } from "date-fns";
 import { cn } from "@/lib/utils.ts";
+import ContactControls from "./ContactControls.tsx";
 
 interface Props {
   contacts: Contact[];
@@ -57,8 +58,19 @@ export default function ContactList({ contacts }: Props) {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Contacts</h2>
+          <p className="text-xs text-muted-foreground">
+            Contact status is selected explicitly; it is not inferred from
+            dates.
+          </p>
+        </div>
+        <ContactControls />
+      </div>
       <input
         type="text"
+        aria-label="Search contacts"
         placeholder="Search by name or tag…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -94,6 +106,20 @@ export default function ContactList({ contacts }: Props) {
       </div>
 
       <div className="space-y-3">
+        {contacts.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No contacts yet.
+            </CardContent>
+          </Card>
+        )}
+        {contacts.length > 0 && filtered.length === 0 && (
+          <Card>
+            <CardContent className="py-8 text-center text-sm text-muted-foreground">
+              No contacts match this search or relationship filter.
+            </CardContent>
+          </Card>
+        )}
         {filtered.map((c) => (
           <Card key={c.id}>
             <CardContent className="pt-3 pb-3">
@@ -118,6 +144,7 @@ export default function ContactList({ contacts }: Props) {
                     >
                       {c.relationship}
                     </span>
+                    <ContactControls contact={c} />
                   </div>
                   <div className="flex flex-wrap gap-2 text-xs text-muted-foreground mt-1">
                     {c.last_contact && (

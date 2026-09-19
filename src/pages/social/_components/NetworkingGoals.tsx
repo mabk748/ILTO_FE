@@ -17,11 +17,19 @@ const STATUS_STYLES: Record<string, string> = {
 export default function NetworkingGoals({ goals }: Props) {
   return (
     <div className="space-y-3">
+      {goals.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No networking goals yet.
+          </CardContent>
+        </Card>
+      )}
       {goals.map((g) => {
         const pct =
           g.target_contacts > 0
             ? Math.round((g.current_contacts / g.target_contacts) * 100)
             : 0;
+        const clampedPct = Math.min(100, Math.max(0, pct));
         return (
           <Card key={g.id}>
             <CardContent className="pt-4 space-y-3">
@@ -46,7 +54,12 @@ export default function NetworkingGoals({ goals }: Props) {
                 <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                   <div
                     className="h-full rounded-full bg-primary"
-                    style={{ width: `${pct}%` }}
+                    style={{ width: `${clampedPct}%` }}
+                    role="progressbar"
+                    aria-label={`${g.title} networking progress`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={clampedPct}
                   />
                 </div>
               </div>

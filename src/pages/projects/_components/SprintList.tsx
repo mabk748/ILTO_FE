@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useProjectsData } from "../projects-data.ts";
+import ResourceControls from "./ResourceControls.tsx";
 import type { Sprint, Task, SprintStatus } from "@/lib/api/types.ts";
-import { getSprints, getTasks } from "@/lib/api/projects.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import {
   Card,
@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card.tsx";
 import { Progress } from "@/components/ui/progress.tsx";
-import { format } from "date-fns";
+import { formatCalendarDate } from "@/lib/calendar-date.ts";
 import { cn } from "@/lib/utils.ts";
 import { ChevronDown, ChevronRight, Zap } from "lucide-react";
 import VelocityChart from "./VelocityChart.tsx";
@@ -38,6 +38,7 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       <button
+        aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
         className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-muted/40 transition-colors cursor-pointer"
       >
@@ -65,8 +66,8 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
         <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <span>
-              {format(new Date(sprint.start_date), "MMM d")} –{" "}
-              {format(new Date(sprint.end_date), "MMM d")}
+              {formatCalendarDate(sprint.start_date, "MMM d")} –{" "}
+              {formatCalendarDate(sprint.end_date, "MMM d")}
             </span>
           </div>
           {sprint.velocity > 0 && (
@@ -78,6 +79,9 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
         </div>
       </button>
 
+      <div className="px-4 pb-3">
+        <ResourceControls target={{ kind: "sprint", record: sprint }} />
+      </div>
       <div className="px-4 pb-3 space-y-1">
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>
@@ -115,28 +119,19 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
 }
 
 export default function SprintList() {
-  const {
-    data: sprints = [],
-    error,
-    isPending: loading,
-    refetch,
-  } = useQuery({
-    queryKey: ["projects", "sprints"],
-    queryFn: async (): Promise<SprintWithTasks[]> => {
-      const [sprintData, taskData] = await Promise.all([
-        getSprints(),
-        getTasks(),
-      ]);
-      const enriched: SprintWithTasks[] = sprintData.map((s) => {
-        const tasks = taskData.filter((t) => t.sprint_id === s.id);
-        const pointsDone = tasks
-          .filter((t) => t.status === "done")
-          .reduce((sum, t) => sum + t.story_points, 0);
-        const pointsTotal = tasks.reduce((sum, t) => sum + t.story_points, 0);
-        return { ...s, tasks, pointsDone, pointsTotal };
-      });
-      return enriched;
-    },
+  const { data, error, isPending: loading, refetch } = useProjectsData();
+  const sprints: SprintWithTasks[] = (data?.sprints ?? []).map((sprint) => {
+    const tasks = (data?.tasks ?? []).filter(
+      (task) => task.sprint_id === sprint.id,
+    );
+    return {
+      ...sprint,
+      tasks,
+      pointsDone: tasks
+        .filter((task) => task.status === "done")
+        .reduce((sum, task) => sum + task.story_points, 0),
+      pointsTotal: tasks.reduce((sum, task) => sum + task.story_points, 0),
+    };
   });
 
   if (loading) {
@@ -156,6 +151,7 @@ export default function SprintList() {
   return (
     <div className="space-y-6">
       <div className="space-y-3">
+        {sprints.length === 0 && <p>No sprints yet.</p>}
         {sprints.map((s) => (
           <SprintRow key={s.id} sprint={s} />
         ))}

@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useProjectsData, summarizeProjects } from "./projects-data.ts";
+import ProjectList from "./_components/ProjectList.tsx";
+import ResourceControls from "./_components/ResourceControls.tsx";
 import { FolderKanban, Activity, ListTodo, Zap } from "lucide-react";
 import {
   Tabs,
@@ -8,19 +9,11 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
-import { getProjects, getSprints, getTasks } from "@/lib/api/projects.ts";
 import KanbanBoard from "./_components/KanbanBoard.tsx";
 import SprintList from "./_components/SprintList.tsx";
 import MilestoneList from "./_components/MilestoneList.tsx";
 import GanttChart from "./_components/GanttChart.tsx";
 import LoadError from "@/components/LoadError.tsx";
-
-interface SummaryStats {
-  activeProjects: number;
-  activeSprints: number;
-  openTasks: number;
-  sprintPoints: number;
-}
 
 function StatCard({
   label,
@@ -43,35 +36,8 @@ function StatCard({
 }
 
 export default function ProjectsPage() {
-  const {
-    data: stats,
-    error,
-    isPending: statsLoading,
-    refetch,
-  } = useQuery({
-    queryKey: ["projects", "summary"],
-    queryFn: async (): Promise<SummaryStats> => {
-      const [projects, sprints, tasks] = await Promise.all([
-        getProjects(),
-        getSprints(),
-        getTasks(),
-      ]);
-      const activeSprint = sprints.find((sprint) => sprint.status === "active");
-      return {
-        activeProjects: projects.data.filter(
-          (project) => project.status === "active",
-        ).length,
-        activeSprints: sprints.filter((sprint) => sprint.status === "active")
-          .length,
-        openTasks: tasks.filter((task) => task.status !== "done").length,
-        sprintPoints: activeSprint
-          ? tasks
-              .filter((task) => task.sprint_id === activeSprint.id)
-              .reduce((sum, task) => sum + task.story_points, 0)
-          : 0,
-      };
-    },
-  });
+  const { data, error, isPending: statsLoading, refetch } = useProjectsData();
+  const stats = data ? summarizeProjects(data) : undefined;
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -113,22 +79,44 @@ export default function ProjectsPage() {
             icon={ListTodo}
           />
           <StatCard
-            label="Sprint Points"
+            label="Active Sprint Points"
             value={stats.sprintPoints}
             icon={Zap}
           />
         </div>
       ) : null}
 
+      <div className="flex flex-wrap gap-2">
+        <ResourceControls target={{ kind: "project" }} />
+        <ResourceControls target={{ kind: "sprint" }} />
+        <ResourceControls target={{ kind: "task" }} />
+        <ResourceControls target={{ kind: "milestone" }} />
+        <button
+          type="button"
+          className="text-sm underline px-2"
+          onClick={() => void refetch()}
+        >
+          Refresh Projects
+        </button>
+      </div>
+      {data && data.projects.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Create a project first to add sprints, tasks, and milestones.
+        </p>
+      )}
       {/* Tabs */}
       <Tabs defaultValue="board">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto">
+          <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="board">Board</TabsTrigger>
           <TabsTrigger value="sprints">Sprints</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="gantt">Gantt</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="projects" className="mt-4">
+          <ProjectList />
+        </TabsContent>
         <TabsContent value="board" className="mt-4">
           <KanbanBoard />
         </TabsContent>

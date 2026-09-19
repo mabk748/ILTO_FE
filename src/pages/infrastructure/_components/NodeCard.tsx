@@ -4,6 +4,7 @@ import { Progress } from "@/components/ui/progress.tsx";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils.ts";
 import { Cpu, MemoryStick, HardDrive } from "lucide-react";
+import NodeControls from "./NodeControls.tsx";
 
 const STATUS_DOT: Record<NodeStatus, string> = {
   online: "bg-green-500",
@@ -68,6 +69,9 @@ export default function NodeCard({ node, metric }: Props) {
         <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
           <span>{node.os}</span>
           <span className="font-mono">{node.ip_address}</span>
+        </div>
+        <div className="flex justify-end pt-2">
+          <NodeControls node={node} />
         </div>
       </CardHeader>
 
@@ -145,7 +149,11 @@ export default function NodeCard({ node, metric }: Props) {
 
         <p className="text-xs text-muted-foreground border-t border-border pt-2">
           Last seen{" "}
-          {formatDistanceToNow(new Date(node.last_seen), { addSuffix: true })}
+          {node.last_seen
+            ? formatDistanceToNow(new Date(node.last_seen), {
+                addSuffix: true,
+              })
+            : "Never observed"}
         </p>
       </CardContent>
     </Card>

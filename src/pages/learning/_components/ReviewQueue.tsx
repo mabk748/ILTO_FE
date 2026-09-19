@@ -1,4 +1,7 @@
+import { reviewCard } from "@/lib/api/learning.ts";
+import { learningWriteError } from "../learning-editor.ts";
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { SpacedRepetitionCard } from "@/lib/api/types.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
@@ -10,13 +13,33 @@ interface Props {
 }
 
 export default function ReviewQueue({ cards: initialCards }: Props) {
+  const queryClient = useQueryClient();
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
-  const [reviewed, setReviewed] = useState<Record<string, boolean>>({});
+  const [reviewed, setReviewed] = useState<
+    Record<string, SpacedRepetitionCard>
+  >({});
+  const [error, setError] = useState<string | null>(null);
+  const review = useMutation({
+    mutationFn: (id: string) =>
+      reviewCard(id, { reviewed_at: new Date().toISOString() }),
+    retry: false,
+  });
+  const markReviewed = async (card: SpacedRepetitionCard) => {
+    setError(null);
+    try {
+      const updated = await review.mutateAsync(card.id);
+      setReviewed((previous) => ({ ...previous, [card.id]: updated }));
+      await Promise.all(
+        ["learning", "dashboard"].map((domain) =>
+          queryClient.invalidateQueries({ queryKey: [domain] }),
+        ),
+      );
+    } catch (reason) {
+      setError(learningWriteError(reason));
+    }
+  };
 
-  const dueCards = initialCards.filter(
-    (c) => new Date(c.next_review) <= new Date(),
-  );
-  const reviewedCount = Object.values(reviewed).filter(Boolean).length;
+  const dueCards = initialCards;
 
   if (dueCards.length === 0) {
     return (
@@ -38,31 +61,33 @@ export default function ReviewQueue({ cards: initialCards }: Props) {
           </span>{" "}
           cards due
         </span>
-        <span>·</span>
-        <span>
-          <span className="text-foreground font-semibold">{reviewedCount}</span>{" "}
-          reviewed today
-        </span>
       </div>
+
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
 
       <div className="space-y-3">
         {dueCards.map((card) => {
           const isRevealed = revealed[card.id];
-          const isDone = reviewed[card.id];
+          const schedule = reviewed[card.id] ?? card;
+          const isDone = reviewed[card.id] !== undefined;
 
           return (
             <Card key={card.id} className={isDone ? "opacity-50" : ""}>
               <CardContent className="pt-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className="text-xs">
-                    {card.topic}
+                    {schedule.topic}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {card.times_reviewed}× reviewed
+                    {schedule.times_reviewed}× reviewed
                   </span>
                 </div>
 
-                <p className="text-sm font-medium">{card.question}</p>
+                <p className="text-sm font-medium">{schedule.question}</p>
 
                 {!isRevealed && !isDone && (
                   <Button
@@ -88,18 +113,19 @@ export default function ReviewQueue({ cards: initialCards }: Props) {
                 {isRevealed && !isDone && (
                   <Button
                     size="sm"
-                    onClick={() =>
-                      setReviewed((prev) => ({ ...prev, [card.id]: true }))
-                    }
+                    disabled={review.isPending}
+                    onClick={() => void markReviewed(card)}
                     className="gap-2 cursor-pointer"
                   >
-                    <CheckCircle className="h-3 w-3" /> Mark reviewed
+                    <CheckCircle className="h-3 w-3" />{" "}
+                    {review.isPending ? "Saving…" : "Mark reviewed"}
                   </Button>
                 )}
 
                 {isDone && (
                   <div className="flex items-center gap-1.5 text-xs text-green-400">
-                    <CheckCircle className="h-3 w-3" /> Reviewed
+                    <CheckCircle className="h-3 w-3" /> Reviewed. Next review:{" "}
+                    {new Date(schedule.next_review).toLocaleString()}
                   </div>
                 )}
               </CardContent>

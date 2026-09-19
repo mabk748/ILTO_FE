@@ -31,12 +31,12 @@ export default function AppearancePage() {
     refetch,
   } = useQuery({
     queryKey: ["appearance"],
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const [items, outfits, routines, spend] = await Promise.all([
-        getWardrobeItems(),
-        getOutfitLogs(),
-        getGroomingRoutines(),
-        getAppearanceSpend(),
+        getWardrobeItems({ signal }),
+        getOutfitLogs(undefined, { signal }),
+        getGroomingRoutines({ signal }),
+        getAppearanceSpend({ signal }),
       ]);
       return { items, outfits, routines, spend };
     },

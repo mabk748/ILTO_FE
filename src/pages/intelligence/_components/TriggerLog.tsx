@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import LoadError from "@/components/LoadError.tsx";
 import { CheckCircle2, Circle, Clock } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Card, CardContent } from "@/components/ui/card.tsx";
@@ -8,7 +10,7 @@ import { getTriggerLog, resolveTriggerLogEntry } from "@/lib/api/triggers.ts";
 import type { TriggerLogEntry } from "@/lib/api/triggers.ts";
 import type { DomainName } from "@/lib/api/types.ts";
 import { formatDistanceToNow, format } from "date-fns";
-import { toast } from "sonner";
+import { triggerWriteError } from "../trigger-editor.ts";
 
 const DOMAIN_COLORS: Record<DomainName, string> = {
   projects: "bg-violet-500/20 text-violet-400 border-violet-500/30",
@@ -25,9 +27,11 @@ const DOMAIN_COLORS: Record<DomainName, string> = {
 function LogRow({
   entry,
   onResolve,
+  pending,
 }: {
   entry: TriggerLogEntry;
   onResolve: (id: string) => void;
+  pending: boolean;
 }) {
   return (
     <div
@@ -79,7 +83,8 @@ function LogRow({
           variant="ghost"
           size="sm"
           className="shrink-0 text-xs h-7 px-2"
-          onClick={() => onResolve(entry.id)}
+          disabled={pending}
+          onClick={() => void onResolve(entry.id)}
         >
           Resolve
         </Button>
@@ -89,37 +94,39 @@ function LogRow({
 }
 
 export default function TriggerLog() {
-  const [log, setLog] = useState<TriggerLogEntry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const {
+    data: log = [],
+    error,
+    isPending: loading,
+    refetch,
+  } = useQuery({
+    queryKey: ["triggers", "log"],
+    queryFn: ({ signal }) => getTriggerLog({ signal }),
+  });
   const [showResolved, setShowResolved] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    void getTriggerLog()
-      .then((data) => {
-        if (active) setLog(data);
-      })
-      .catch(() => {
-        if (active) toast.error("Could not load the sample trigger log");
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
+  const [actionError, setActionError] = useState<string | null>(null);
+  const resolution = useMutation({
+    mutationFn: (id: string) => resolveTriggerLogEntry(id),
+    retry: false,
+  });
   const handleResolve = async (id: string) => {
+    setActionError(null);
     try {
-      await resolveTriggerLogEntry(id);
-      setLog((prev) =>
-        prev.map((e) => (e.id === id ? { ...e, resolved: true } : e)),
+      const resolved = await resolution.mutateAsync(id);
+      queryClient.setQueryData<TriggerLogEntry[]>(
+        ["triggers", "log"],
+        (current) =>
+          current?.map((entry) =>
+            entry.id === resolved.id ? resolved : entry,
+          ),
       );
-    } catch {
-      toast.error("Could not resolve the sample event");
+      await queryClient.invalidateQueries({ queryKey: ["triggers"] });
+    } catch (reason) {
+      setActionError(triggerWriteError(reason));
     }
   };
+  if (error) return <LoadError error={error} onRetry={() => void refetch()} />;
 
   const filtered = showResolved ? log : log.filter((e) => !e.resolved);
   const unresolvedCount = log.filter((e) => !e.resolved).length;
@@ -163,6 +170,12 @@ export default function TriggerLog() {
         </div>
       </div>
 
+      {actionError && (
+        <p role="alert" className="text-sm text-destructive">
+          {actionError}
+        </p>
+      )}
+
       {filtered.length === 0 ? (
         <div className="py-8 text-center">
           <CheckCircle2 className="h-8 w-8 text-emerald-500 mx-auto mb-2" />
@@ -174,7 +187,12 @@ export default function TriggerLog() {
         <Card>
           <CardContent className="p-0">
             {filtered.map((entry) => (
-              <LogRow key={entry.id} entry={entry} onResolve={handleResolve} />
+              <LogRow
+                key={entry.id}
+                entry={entry}
+                onResolve={handleResolve}
+                pending={resolution.isPending}
+              />
             ))}
           </CardContent>
         </Card>

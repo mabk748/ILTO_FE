@@ -2,6 +2,7 @@ import type { ReadingEntry } from "@/lib/api/types.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { BookOpen, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
+import LearningResourceControls from "./LearningResourceControls.tsx";
 
 interface Props {
   entries: ReadingEntry[];
@@ -18,9 +19,15 @@ function estimateDaysLeft(entry: ReadingEntry): number {
 }
 
 function BookCard({ entry }: { entry: ReadingEntry }) {
-  const pct = Math.round((entry.pages_read / entry.pages_total) * 100);
+  const pct =
+    entry.pages_total > 0
+      ? Math.round((entry.pages_read / entry.pages_total) * 100)
+      : null;
   const isComplete = entry.completed_at != null;
-  const daysLeft = !isComplete ? estimateDaysLeft(entry) : 0;
+  const daysLeft =
+    !isComplete && entry.words_per_minute > 0 && entry.pages_total > 0
+      ? estimateDaysLeft(entry)
+      : null;
 
   return (
     <Card>
@@ -42,7 +49,7 @@ function BookCard({ entry }: { entry: ReadingEntry }) {
             <span>
               {entry.pages_read} / {entry.pages_total} pages
             </span>
-            <span>{pct}%</span>
+            <span>{pct === null ? "No page total" : `${pct}%`}</span>
           </div>
           <div className="h-1.5 rounded-full bg-muted overflow-hidden">
             <div
@@ -50,7 +57,7 @@ function BookCard({ entry }: { entry: ReadingEntry }) {
                 "h-full rounded-full",
                 isComplete ? "bg-green-500" : "bg-primary",
               )}
-              style={{ width: `${pct}%` }}
+              style={{ width: `${Math.max(0, Math.min(100, pct ?? 0))}%` }}
             />
           </div>
         </div>
@@ -64,12 +71,18 @@ function BookCard({ entry }: { entry: ReadingEntry }) {
               {tag}
             </span>
           ))}
-          {!isComplete && (
+          {!isComplete && daysLeft !== null && (
             <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">
               ~{daysLeft}d left
             </span>
           )}
+          {!isComplete && daysLeft === null && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+              Reading pace unavailable
+            </span>
+          )}
         </div>
+        <LearningResourceControls target={{ kind: "reading", record: entry }} />
       </CardContent>
     </Card>
   );
@@ -81,6 +94,17 @@ export default function ReadingList({ entries }: Props) {
 
   return (
     <div className="space-y-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold">Reading</h2>
+        <LearningResourceControls target={{ kind: "reading" }} />
+      </div>
+      {entries.length === 0 && (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            No reading entries yet.
+          </CardContent>
+        </Card>
+      )}
       {inProgress.length > 0 && (
         <div>
           <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">

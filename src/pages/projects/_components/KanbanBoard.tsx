@@ -1,6 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useProjectsData } from "../projects-data.ts";
+import { useProjectsMutation } from "../use-projects-mutation.ts";
+import { projectWriteError } from "../project-editor.ts";
+import ResourceControls from "./ResourceControls.tsx";
 import type { Task, TaskStatus, Priority } from "@/lib/api/types.ts";
-import { getTasks } from "@/lib/api/projects.ts";
+import { updateTask } from "@/lib/api/projects.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
@@ -21,13 +24,40 @@ const PRIORITY_CLASSES: Record<Priority, string> = {
 };
 
 function TaskCard({ task }: { task: Task }) {
+  const mutation = useProjectsMutation((status: TaskStatus) =>
+    updateTask(task.id, { status }),
+  );
   const initials = task.assignee
     ? task.assignee.slice(0, 2).toUpperCase()
     : "?";
 
   return (
-    <div className="bg-card border border-border rounded-md p-3 space-y-2 cursor-grab hover:border-primary/50 transition-colors select-none">
+    <div className="bg-card border border-border rounded-md p-3 space-y-2 hover:border-primary/50 transition-colors">
       <p className="text-sm font-medium leading-tight">{task.title}</p>
+      <label className="block text-xs space-y-1">
+        <span>Status</span>
+        <select
+          aria-label={`Status for ${task.title}`}
+          className="w-full rounded border bg-background p-1"
+          value={task.status}
+          disabled={mutation.isPending}
+          onChange={(event) =>
+            mutation.mutate(event.target.value as TaskStatus)
+          }
+        >
+          {COLUMNS.map((column) => (
+            <option key={column.status} value={column.status}>
+              {column.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {mutation.error && (
+        <p role="alert" className="text-xs text-destructive">
+          {projectWriteError(mutation.error)}
+        </p>
+      )}
+      <ResourceControls target={{ kind: "task", record: task }} />
       <div className="flex items-center justify-between gap-2">
         <div className="flex gap-1 flex-wrap">
           <span
@@ -66,15 +96,8 @@ function ColumnSkeleton() {
 }
 
 export default function KanbanBoard() {
-  const {
-    data: tasks = [],
-    error,
-    isPending: loading,
-    refetch,
-  } = useQuery({
-    queryKey: ["projects", "tasks"],
-    queryFn: () => getTasks(),
-  });
+  const { data, error, isPending: loading, refetch } = useProjectsData();
+  const tasks = data?.tasks ?? [];
 
   if (loading) {
     return (

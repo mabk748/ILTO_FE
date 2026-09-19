@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { format, differenceInDays } from "date-fns";
 import type { LogisticsEvent, Trip, TripStatus } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
 import { Plane, RefreshCw, CalendarCheck, Bell, MapPin } from "lucide-react";
+import LogisticsResourceControls from "./LogisticsResourceControls.tsx";
 
 const eventTypeIcon: Record<string, React.ElementType> = {
   trip: Plane,
@@ -51,20 +51,10 @@ interface Props {
 }
 
 export default function EventCalendar({ events, trips }: Props) {
-  const [checked, setChecked] = useState<Set<string>>(new Set());
-
-  const toggle = (id: string) =>
-    setChecked((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-
-  // Group upcoming (non-completed) events
-  const upcoming = events.filter((e) => !e.completed);
   const buckets: Record<string, LogisticsEvent[]> = {};
-  for (const e of upcoming) {
+  for (const e of [...events].sort(
+    (left, right) => Date.parse(left.date) - Date.parse(right.date),
+  )) {
     const b = getTimeBucket(new Date(e.date));
     if (!buckets[b]) buckets[b] = [];
     buckets[b].push(e);
@@ -74,7 +64,15 @@ export default function EventCalendar({ events, trips }: Props) {
 
   return (
     <div className="space-y-5">
-      {/* Events timeline */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-foreground">Events</h2>
+        <LogisticsResourceControls target={{ kind: "event" }} trips={trips} />
+      </div>
+      {events.length === 0 && (
+        <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          No logistics events yet.
+        </div>
+      )}
       {bucketOrder
         .filter((b) => buckets[b]?.length > 0)
         .map((bucket) => (
@@ -85,7 +83,7 @@ export default function EventCalendar({ events, trips }: Props) {
             <div className="space-y-2">
               {(buckets[bucket] ?? []).map((evt) => {
                 const Icon = eventTypeIcon[evt.type] ?? Bell;
-                const isChecked = checked.has(evt.id);
+                const isChecked = evt.completed;
                 const durationDays = evt.end_date
                   ? differenceInDays(new Date(evt.end_date), new Date(evt.date))
                   : null;
@@ -121,6 +119,11 @@ export default function EventCalendar({ events, trips }: Props) {
                             <MapPin className="h-2.5 w-2.5" /> Trip
                           </span>
                         )}
+                        {evt.completed && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Completed
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
                         {format(new Date(evt.date), "EEE, MMM d")}
@@ -129,18 +132,10 @@ export default function EventCalendar({ events, trips }: Props) {
                         {evt.notes && ` · ${evt.notes}`}
                       </p>
                     </div>
-                    <button
-                      onClick={() => toggle(evt.id)}
-                      className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground transition-colors mt-0.5"
-                      aria-label="Toggle done"
-                    >
-                      <CalendarCheck
-                        className={cn(
-                          "h-4 w-4",
-                          isChecked && "text-emerald-400",
-                        )}
-                      />
-                    </button>
+                    <LogisticsResourceControls
+                      target={{ kind: "event", record: evt }}
+                      trips={trips}
+                    />
                   </div>
                 );
               })}
@@ -148,11 +143,16 @@ export default function EventCalendar({ events, trips }: Props) {
           </div>
         ))}
 
-      {/* Trips section */}
       <div>
-        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-          Trips
-        </h3>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-foreground">Trips</h2>
+          <LogisticsResourceControls target={{ kind: "trip" }} />
+        </div>
+        {trips.length === 0 && (
+          <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+            No trips yet.
+          </div>
+        )}
         <div className="space-y-2">
           {trips.map((trip) => {
             const cfg = tripStatusConfig[trip.status];
@@ -211,6 +211,9 @@ export default function EventCalendar({ events, trips }: Props) {
                     {trip.notes}
                   </p>
                 )}
+                <LogisticsResourceControls
+                  target={{ kind: "trip", record: trip }}
+                />
               </div>
             );
           })}

@@ -36,14 +36,18 @@ const ASSET_CLASS_STYLES: Record<AssetClass, string> = {
 };
 
 export default function PortfolioView({ netWorth, trades }: Props) {
-  const chartData = netWorth.map((n) => ({
-    date: format(new Date(n.date), "MMM"),
+  const orderedNetWorth = [...netWorth].sort(
+    (left, right) =>
+      new Date(left.date).getTime() - new Date(right.date).getTime(),
+  );
+  const chartData = orderedNetWorth.map((n) => ({
+    timestamp: new Date(n.date).getTime(),
     assets: n.total_assets,
     liabilities: n.total_liabilities,
     net: n.net_worth,
   }));
 
-  const latest = netWorth[netWorth.length - 1];
+  const latest = orderedNetWorth[orderedNetWorth.length - 1];
   const totalInvested = trades
     .filter((t) => t.action === "buy")
     .reduce((a, t) => a + t.quantity * t.price, 0);
@@ -70,7 +74,9 @@ export default function PortfolioView({ netWorth, trades }: Props) {
         </Card>
         <Card>
           <CardContent className="pt-4 pb-3">
-            <p className="text-xs text-muted-foreground">Total Invested</p>
+            <p className="text-xs text-muted-foreground">
+              Gross buy value (before sells)
+            </p>
             <p className="text-xl font-bold">
               €{totalInvested.toLocaleString()}
             </p>
@@ -84,51 +90,62 @@ export default function PortfolioView({ netWorth, trades }: Props) {
           <CardTitle className="text-sm">Net Worth Timeline</CardTitle>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                tickFormatter={(v) => `€${((v as number) / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "var(--card)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 6,
-                  fontSize: 12,
-                }}
-                formatter={(v: unknown) => [
-                  `€${typeof v === "number" ? v.toLocaleString() : v}`,
-                  "",
-                ]}
-              />
-              <Area
-                type="monotone"
-                dataKey="assets"
-                stroke="#6366f1"
-                fill="#6366f120"
-                strokeWidth={2}
-                stackId="1"
-              />
-              <Area
-                type="monotone"
-                dataKey="liabilities"
-                stroke="#ef4444"
-                fill="#ef444420"
-                strokeWidth={2}
-                stackId="2"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {chartData.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-20">
+              No net-worth snapshots available.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="timestamp"
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value: number) =>
+                    format(new Date(value), "MMM")
+                  }
+                />
+                <YAxis
+                  tick={{ fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(v) =>
+                    `€${((v as number) / 1000).toFixed(0)}k`
+                  }
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 6,
+                    fontSize: 12,
+                  }}
+                  formatter={(v: unknown) => [
+                    `€${typeof v === "number" ? v.toLocaleString() : v}`,
+                    "",
+                  ]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="assets"
+                  stroke="#6366f1"
+                  fill="#6366f120"
+                  strokeWidth={2}
+                  stackId="1"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="liabilities"
+                  stroke="#ef4444"
+                  fill="#ef444420"
+                  strokeWidth={2}
+                  stackId="2"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
@@ -138,55 +155,63 @@ export default function PortfolioView({ netWorth, trades }: Props) {
           <CardTitle className="text-sm">Trade Log</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-muted-foreground border-b border-border">
-                  <th className="text-left pb-2 font-medium">Ticker</th>
-                  <th className="text-left pb-2 font-medium">Class</th>
-                  <th className="text-left pb-2 font-medium">Action</th>
-                  <th className="text-right pb-2 font-medium">Qty</th>
-                  <th className="text-right pb-2 font-medium">Price</th>
-                  <th className="text-right pb-2 font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trades.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="py-2 font-semibold">{t.ticker}</td>
-                    <td className="py-2">
-                      <span
+          {trades.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No trades available.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs text-muted-foreground border-b border-border">
+                    <th className="text-left pb-2 font-medium">Ticker</th>
+                    <th className="text-left pb-2 font-medium">Class</th>
+                    <th className="text-left pb-2 font-medium">Action</th>
+                    <th className="text-right pb-2 font-medium">Qty</th>
+                    <th className="text-right pb-2 font-medium">Price</th>
+                    <th className="text-right pb-2 font-medium">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trades.map((t) => (
+                    <tr
+                      key={t.id}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="py-2 font-semibold">{t.ticker}</td>
+                      <td className="py-2">
+                        <span
+                          className={cn(
+                            "text-[10px] px-1.5 py-0.5 rounded-full border",
+                            ASSET_CLASS_STYLES[t.asset_class],
+                          )}
+                        >
+                          {t.asset_class}
+                        </span>
+                      </td>
+                      <td
                         className={cn(
-                          "text-[10px] px-1.5 py-0.5 rounded-full border",
-                          ASSET_CLASS_STYLES[t.asset_class],
+                          "py-2 font-medium text-xs",
+                          t.action === "buy"
+                            ? "text-green-400"
+                            : "text-red-400",
                         )}
                       >
-                        {t.asset_class}
-                      </span>
-                    </td>
-                    <td
-                      className={cn(
-                        "py-2 font-medium text-xs",
-                        t.action === "buy" ? "text-green-400" : "text-red-400",
-                      )}
-                    >
-                      {t.action.toUpperCase()}
-                    </td>
-                    <td className="py-2 text-right">{t.quantity}</td>
-                    <td className="py-2 text-right">
-                      €{t.price.toLocaleString()}
-                    </td>
-                    <td className="py-2 text-right text-muted-foreground text-xs">
-                      {format(new Date(t.date), "MMM d, yyyy")}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                        {t.action.toUpperCase()}
+                      </td>
+                      <td className="py-2 text-right">{t.quantity}</td>
+                      <td className="py-2 text-right">
+                        €{t.price.toLocaleString()}
+                      </td>
+                      <td className="py-2 text-right text-muted-foreground text-xs">
+                        {format(new Date(t.date), "MMM d, yyyy")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

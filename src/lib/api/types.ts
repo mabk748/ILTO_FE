@@ -1,10 +1,10 @@
 // ============================================================
-// ILTO API Types — mirrors FastAPI/PostgreSQL schema
-// Replace mock implementations with real fetch() calls
-// when the FastAPI backend is ready.
+// Proposed frontend/backend contract. The backend is implemented separately.
+// See docs/backend-api.md for routes, payloads, and response conventions.
 // ============================================================
 
 export type ISODateString = string; // ISO 8601 UTC
+export type CalendarDateString = string; // YYYY-MM-DD, no timezone conversion
 
 // --- SHARED ---
 export type DomainName =
@@ -33,8 +33,8 @@ export interface Project {
   description: string;
   status: ProjectStatus;
   priority: Priority;
-  start_date: ISODateString;
-  end_date: ISODateString | null;
+  start_date: CalendarDateString;
+  end_date: CalendarDateString | null;
   created_at: ISODateString;
   updated_at: ISODateString;
 }
@@ -45,8 +45,8 @@ export interface Sprint {
   name: string;
   goal: string;
   status: SprintStatus;
-  start_date: ISODateString;
-  end_date: ISODateString;
+  start_date: CalendarDateString;
+  end_date: CalendarDateString;
   velocity: number;
   created_at: ISODateString;
 }
@@ -70,7 +70,7 @@ export interface Milestone {
   project_id: string;
   title: string;
   description: string;
-  due_date: ISODateString;
+  due_date: CalendarDateString;
   completed_at: ISODateString | null;
   created_at: ISODateString;
 }
@@ -86,7 +86,7 @@ export interface InfraNode {
   status: NodeStatus;
   ip_address: string;
   os: string;
-  last_seen: ISODateString;
+  last_seen: ISODateString | null;
 }
 
 export interface SystemMetric {
@@ -164,7 +164,7 @@ export interface Transaction {
   category_id: string;
   type: TransactionType;
   amount: number;
-  currency: string;
+  currency: "EUR";
   description: string;
   date: ISODateString;
   tags: string[];
@@ -450,17 +450,11 @@ export interface LogisticsEvent {
   completed: boolean;
 }
 
-// --- API RESPONSE WRAPPERS ---
+// --- API RESPONSE WRAPPER ---
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
   page: number;
   per_page: number;
   total_pages: number;
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  message: string;
-  success: boolean;
 }

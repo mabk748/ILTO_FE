@@ -1,80 +1,75 @@
+import { getArray } from "./resource.ts";
+/** Proposed backend contract: see docs/backend-api.md. */
+import { apiClient, type ApiRequestOptions } from "./client.ts";
+import { encodeId, getNullable } from "./resource.ts";
 import type { Contact, NetworkingGoal, FollowUpPrompt } from "./types.ts";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE ??
-  "https://n8n-pr.mhabproperties.org/webhook/api/v1/social";
-
-async function getJson<T>(resource: string): Promise<T> {
-  const res = await fetch(`${API_BASE}?resource=${resource}`);
-  if (!res.ok)
-    throw new Error(`GET /social?resource=${resource} failed: ${res.status}`);
-  return res.json();
+export function getContacts(
+  options: ApiRequestOptions = {},
+): Promise<Contact[]> {
+  return getArray<Contact>(`/social/contacts`, options);
 }
 
-// GET /api/v1/social/contacts
-export async function getContacts(): Promise<Contact[]> {
-  return getJson<Contact[]>("contacts");
+export function getContact(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<Contact | null> {
+  return getNullable<Contact>(`/social/contacts/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/social/contacts/:id
-export async function getContact(id: string): Promise<Contact | null> {
-  return getJson<Contact>(`contacts&id=${encodeURIComponent(id)}`) ?? null;
+export function getNetworkingGoals(
+  options: ApiRequestOptions = {},
+): Promise<NetworkingGoal[]> {
+  return getArray<NetworkingGoal>(`/social/networking-goals`, options);
 }
 
-// GET /api/v1/social/networking-goals
-export async function getNetworkingGoals(): Promise<NetworkingGoal[]> {
-  return getJson<NetworkingGoal[]>("networking-goal");
-}
-
-// GET /api/v1/social/follow-ups?completed=false
-export async function getFollowUps(
+export function getFollowUps(
   completed?: boolean,
+  options: ApiRequestOptions = {},
 ): Promise<FollowUpPrompt[]> {
-  if (completed === undefined)
-    return getJson<FollowUpPrompt[]>("follow-up-prompt");
-  return getJson<FollowUpPrompt[]>(`follow-up-prompt&completed=${completed}`);
+  return getArray<FollowUpPrompt>(`/social/follow-ups`, {
+    ...options,
+    query: { ...options.query, ...{ completed } },
+  });
 }
 
-// TO BE CLEANED: START
-/**
- * Social Domain API
- *
- * INTEGRATION GUIDE:
- * Base URL: http://your-server:8000/api/v1/social
- *
- * Contacts can optionally import from LinkedIn CSV export.
- * Follow-up prompts are auto-generated server-side based on
- * last_contact date and user-defined cadence rules per relationship type.
+export type CreateContactInput = Omit<Contact, "id">;
+export type UpdateContactInput = Partial<CreateContactInput>;
 
-
-import type { Contact, NetworkingGoal, FollowUpPrompt } from "./types.ts";
-import { mockContacts, mockNetworkingGoals, mockFollowUps } from "./mock/social.mock.ts";
-
-const delay = (): Promise<void> => new Promise(r => setTimeout(r, 150));
-
-// GET /api/v1/social/contacts
-export async function getContacts(): Promise<Contact[]> {
-  await delay();
-  return mockContacts;
+export function createContact(
+  input: CreateContactInput,
+  options: ApiRequestOptions = {},
+): Promise<Contact> {
+  return apiClient.post<Contact>("/social/contacts", input, options);
 }
 
-// GET /api/v1/social/contacts/:id
-export async function getContact(id: string): Promise<Contact | null> {
-  await delay();
-  return mockContacts.find(c => c.id === id) ?? null;
+export function updateContact(
+  id: string,
+  input: UpdateContactInput,
+  options: ApiRequestOptions = {},
+): Promise<Contact> {
+  return apiClient.patch<Contact>(
+    `/social/contacts/${encodeId(id)}`,
+    input,
+    options,
+  );
 }
 
-// GET /api/v1/social/networking-goals
-export async function getNetworkingGoals(): Promise<NetworkingGoal[]> {
-  await delay();
-  return mockNetworkingGoals;
+export function deleteContact(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/social/contacts/${encodeId(id)}`, options);
 }
 
-// GET /api/v1/social/follow-ups?completed=false
-export async function getFollowUps(completed?: boolean): Promise<FollowUpPrompt[]> {
-  await delay();
-  if (completed === undefined) return mockFollowUps;
-  return mockFollowUps.filter(f => f.completed === completed);
+export function updateFollowUp(
+  id: string,
+  input: Pick<FollowUpPrompt, "completed">,
+  options: ApiRequestOptions = {},
+): Promise<FollowUpPrompt> {
+  return apiClient.patch<FollowUpPrompt>(
+    `/social/follow-ups/${encodeId(id)}`,
+    { completed: input.completed },
+    options,
+  );
 }
- */
-// TO BE CLEANED: END
