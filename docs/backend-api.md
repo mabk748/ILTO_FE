@@ -177,6 +177,9 @@ See [Projects integration](projects-integration.md) for implementation and test 
 | POST   | `/learning/roadmaps`             | `createRoadmap`      | `LearningRoadmap`        |
 | PATCH  | `/learning/roadmaps/:id`         | `updateRoadmap`      | `LearningRoadmap`        |
 | DELETE | `/learning/roadmaps/:id`         | `deleteRoadmap`      | `204 (no body)`          |
+| POST   | `/learning/skills`               | `createSkill`        | `SkillNode`              |
+| PATCH  | `/learning/skills/:id`           | `updateSkill`        | `SkillNode`              |
+| DELETE | `/learning/skills/:id`           | `deleteSkill`        | `204 (no body)`          |
 | POST   | `/learning/reading`              | `createReadingEntry` | `ReadingEntry`           |
 | PATCH  | `/learning/reading/:id`          | `updateReadingEntry` | `ReadingEntry`           |
 | DELETE | `/learning/reading/:id`          | `deleteReadingEntry` | `204 (no body)`          |

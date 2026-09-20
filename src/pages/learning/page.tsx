@@ -13,30 +13,36 @@ import ReviewQueue from "./_components/ReviewQueue.tsx";
 import ReadingList from "./_components/ReadingList.tsx";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
+import { learningQueryKeys } from "./learning-query-keys.ts";
 
 type Tab = "roadmaps" | "review" | "reading";
 
 export default function LearningPage() {
   const [tab, setTab] = useState<Tab>("roadmaps");
-  const {
-    data,
-    error,
-    isPending: loading,
-    refetch,
-  } = useQuery({
-    queryKey: ["learning"],
-    queryFn: async ({ signal }) => {
-      const [roadmaps, skills, dueCards, reading] = await Promise.all([
-        getRoadmaps({ signal }),
-        getSkills(undefined, { signal }),
-        getDueCards({ signal }),
-        getReadingList({ signal }),
-      ]);
-      return { roadmaps, skills, dueCards, reading };
-    },
+  const roadmaps = useQuery({
+    queryKey: learningQueryKeys.roadmaps,
+    queryFn: ({ signal }) => getRoadmaps({ signal }),
   });
+  const skills = useQuery({
+    queryKey: learningQueryKeys.skills,
+    queryFn: ({ signal }) => getSkills(undefined, { signal }),
+  });
+  const dueCards = useQuery({
+    queryKey: learningQueryKeys.dueCards,
+    queryFn: ({ signal }) => getDueCards({ signal }),
+  });
+  const reading = useQuery({
+    queryKey: learningQueryKeys.reading,
+    queryFn: ({ signal }) => getReadingList({ signal }),
+  });
+  const queries = [roadmaps, skills, dueCards, reading];
+  const error = queries.find((query) => query.error)?.error;
+  const loading = queries.some((query) => query.isPending);
+  const refetch = async () => {
+    await Promise.all(queries.map((query) => query.refetch()));
+  };
 
-  const dueCount = data?.dueCards.length ?? 0;
+  const dueCount = dueCards.data?.length ?? 0;
 
   const TABS = [
     { id: "roadmaps" as Tab, label: "Roadmaps" },
@@ -88,12 +94,12 @@ export default function LearningPage() {
         <>
           {tab === "roadmaps" && (
             <RoadmapList
-              roadmaps={data?.roadmaps ?? []}
-              skills={data?.skills ?? []}
+              roadmaps={roadmaps.data ?? []}
+              skills={skills.data ?? []}
             />
           )}
-          {tab === "review" && <ReviewQueue cards={data?.dueCards ?? []} />}
-          {tab === "reading" && <ReadingList entries={data?.reading ?? []} />}
+          {tab === "review" && <ReviewQueue cards={dueCards.data ?? []} />}
+          {tab === "reading" && <ReadingList entries={reading.data ?? []} />}
         </>
       )}
     </div>

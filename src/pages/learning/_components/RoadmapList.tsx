@@ -98,9 +98,15 @@ export default function RoadmapList({ roadmaps, skills }: Props) {
                   />
                 </div>
               </div>
-              <LearningResourceControls
-                target={{ kind: "roadmap", record: r }}
-              />
+              <div className="flex flex-wrap gap-2">
+                <LearningResourceControls
+                  target={{ kind: "roadmap", record: r }}
+                />
+                <LearningResourceControls
+                  target={{ kind: "skill", roadmapId: r.id }}
+                  roadmaps={roadmaps}
+                />
+              </div>
 
               {isOpen && roadmapSkills.length > 0 && (
                 <div className="pt-2 border-t border-border space-y-2">
@@ -112,6 +118,9 @@ export default function RoadmapList({ roadmaps, skills }: Props) {
                         <div className="flex items-center justify-between gap-2">
                           <div>
                             <p className="text-sm font-medium">{sk.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {sk.category}
+                            </p>
                             <div className="flex items-center gap-1 text-xs text-muted-foreground">
                               <span>{LEVELS[fromIdx]}</span>
                               <ArrowRight className="h-3 w-3" />
@@ -133,6 +142,19 @@ export default function RoadmapList({ roadmaps, skills }: Props) {
                             }}
                           />
                         </div>
+                        {sk.resources.length > 0 && (
+                          <ul className="list-disc space-y-0.5 pl-5 text-xs text-muted-foreground">
+                            {sk.resources.map((resource, index) => (
+                              <li key={`${sk.id}-resource-${index}`}>
+                                {resource}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        <LearningResourceControls
+                          target={{ kind: "skill", record: sk }}
+                          roadmaps={roadmaps}
+                        />
                       </div>
                     );
                   })}

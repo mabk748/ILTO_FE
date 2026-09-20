@@ -129,6 +129,14 @@ describe("owner session UI (mocked fetch, not real cookies)", () => {
       const { client } = setup();
       await screen.findByText(/Private projects/);
       client.setQueryData(["private"], { secret: "private cache" });
+      client.setQueryData(
+        ["learning", "roadmaps"],
+        [{ id: "another-user-roadmap" }],
+      );
+      client.setQueryData(
+        ["learning", "skills"],
+        [{ id: "another-user-skill" }],
+      );
       let pendingSignal: AbortSignal | null | undefined;
       fetchMock.mockImplementationOnce(
         (_url, init) =>
@@ -162,6 +170,8 @@ describe("owner session UI (mocked fetch, not real cookies)", () => {
       );
       expect(screen.queryByText(/Private projects/)).not.toBeInTheDocument();
       expect(client.getQueryCache().getAll()).toHaveLength(0);
+      expect(client.getQueryData(["learning", "roadmaps"])).toBeUndefined();
+      expect(client.getQueryData(["learning", "skills"])).toBeUndefined();
       expect(pendingSignal?.aborted).toBe(true);
       await pending;
     },

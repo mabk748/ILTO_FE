@@ -1,5 +1,67 @@
 # Changelog
 
+## 2026-09-20 — Learning skill CRUD integration
+
+- Added authenticated Learning skill create, partial-update, and delete adapters
+  for the deployed ILTO 0.1.02 contract. Runtime payload filtering sends only
+  the seven writable skill fields, preserving a zero `gap_score`, empty
+  resource arrays, and roadmap moves while excluding all server-owned fields.
+- Added accessible skill controls to each roadmap. Editors validate owned
+  roadmap selection, level values, integer gap scores from 0 through 100, and
+  resource count/content limits; failed writes leave the form and its values
+  visible, and deletion requires confirmation.
+- Split Learning reads into stable roadmap, skill, due-card, and reading query
+  keys. Confirmed skill writes now refetch skills and roadmaps so API ordering
+  and server-derived roadmap counts remain authoritative, and invalidate the
+  Dashboard summary without optimistic count updates.
+- Added API, editor, component, page-integration, ordering, error, invalidation,
+  server-confirmed-count, and session-clearing coverage. No package was added
+  or version-changed.
+
+### Actual checks
+
+- Focused Learning/auth suite: 7 Vitest files and 41 tests passed (mocked
+  HTTP/jsdom).
+- `npm test`: 57 Vitest files and 289 tests passed, followed by the Node version
+  workflow test.
+- `npm run lint`, `npx tsc -b --pretty false`, and
+  `npm run prettier-check`: passed.
+- `npm run build`: TypeScript and the production Vite build passed (3,051
+  modules transformed).
+- Live owner-session browser verification was not run because no disposable
+  authenticated browser session was provided; no backend or database changes
+  were made.
+
+## 2026-09-20 — Application version and deploy workflow
+
+- Added tracked `app.config.json` as the single source for the displayed ILTO
+  version and initialized it to `0.1.00`. The application shell now reads this
+  value instead of hardcoding `v0.1`; npm's unused package-version field was
+  removed to avoid maintaining a competing version number.
+- Added `npm run app:version` commands to show, explicitly set, or increment the
+  major, minor, or iteration counters. Iterations retain at least two digits,
+  so the default progression is `0.1.00`, `0.1.01`, and so on; no future metric
+  policy has been invented.
+- Added a guarded `npm run deploy` workflow. It defaults to an iteration bump,
+  runs lint, all tests, formatting, and the production build, and restores the
+  old version if preparation fails. With no target it only prepares `dist/`;
+  publishing requires an explicit `user@host:/absolute/path/` rsync target and
+  does not delete remote files.
+- Added version parsing, formatting, rollover, rejection, and configuration
+  write coverage. No package was added or changed.
+
+### Actual checks
+
+- `npm run app:version`: returned `0.1.00`.
+- `npm run deploy -- --help`: passed without changing the version or contacting
+  a server.
+- `npm test`: 56 Vitest files and 278 tests passed, followed by the Node version
+  workflow tests.
+- `npm run build`: TypeScript and the production Vite build passed (3,050
+  modules transformed); the bundled application contains `0.1.00`.
+- `npm run lint` and `npm run prettier-check`: passed.
+- No upload was attempted because no deployment target was provided.
+
 ## 2026-09-19 — Repository cleanup
 
 - Removed 48 unreachable frontend modules: 41 unused UI primitives, three dead

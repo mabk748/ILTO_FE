@@ -21,6 +21,7 @@ import { useOwnerAuth } from "@/components/providers/owner-auth-context.ts";
 import { Button } from "@/components/ui/button.tsx";
 import type { DomainName } from "@/lib/api/types.ts";
 import { useSettings } from "@/components/providers/settings-context.ts";
+import { APP_VERSION } from "@/config/app-version.ts";
 import {
   Sheet,
   SheetClose,
@@ -135,7 +136,7 @@ export default function AppLayout() {
             ILTO
           </span>
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-            v0.1
+            V{APP_VERSION}
           </span>
         </div>
 

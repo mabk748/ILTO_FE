@@ -1,7 +1,6 @@
-import { getArray } from "./resource.ts";
 /** Proposed backend contract: see docs/backend-api.md. */
 import { apiClient, type ApiRequestOptions } from "./client.ts";
-import { encodeId } from "./resource.ts";
+import { encodeId, getArray } from "./resource.ts";
 import type {
   LearningRoadmap,
   SkillNode,
@@ -52,6 +51,48 @@ export type CreateRoadmapInput = Omit<
 >;
 export type UpdateRoadmapInput = Partial<CreateRoadmapInput>;
 
+export type CreateSkillInput = Pick<
+  SkillNode,
+  | "roadmap_id"
+  | "name"
+  | "category"
+  | "current_level"
+  | "target_level"
+  | "gap_score"
+  | "resources"
+>;
+export type UpdateSkillInput = Partial<CreateSkillInput>;
+
+const SKILL_WRITABLE_FIELDS = [
+  "roadmap_id",
+  "name",
+  "category",
+  "current_level",
+  "target_level",
+  "gap_score",
+  "resources",
+] as const satisfies readonly (keyof CreateSkillInput)[];
+
+function createSkillPayload(input: CreateSkillInput): CreateSkillInput {
+  return {
+    roadmap_id: input.roadmap_id,
+    name: input.name,
+    category: input.category,
+    current_level: input.current_level,
+    target_level: input.target_level,
+    gap_score: input.gap_score,
+    resources: input.resources,
+  };
+}
+
+function updateSkillPayload(input: UpdateSkillInput): UpdateSkillInput {
+  return Object.fromEntries(
+    SKILL_WRITABLE_FIELDS.filter((field) => Object.hasOwn(input, field)).map(
+      (field) => [field, input[field]],
+    ),
+  ) as UpdateSkillInput;
+}
+
 export function createRoadmap(
   input: CreateRoadmapInput,
   options: ApiRequestOptions = {},
@@ -76,6 +117,36 @@ export function deleteRoadmap(
   options: ApiRequestOptions = {},
 ): Promise<void> {
   return apiClient.delete(`/learning/roadmaps/${encodeId(id)}`, options);
+}
+
+export function createSkill(
+  input: CreateSkillInput,
+  options: ApiRequestOptions = {},
+): Promise<SkillNode> {
+  return apiClient.post<SkillNode>(
+    "/learning/skills",
+    createSkillPayload(input),
+    options,
+  );
+}
+
+export function updateSkill(
+  id: string,
+  input: UpdateSkillInput,
+  options: ApiRequestOptions = {},
+): Promise<SkillNode> {
+  return apiClient.patch<SkillNode>(
+    `/learning/skills/${encodeId(id)}`,
+    updateSkillPayload(input),
+    options,
+  );
+}
+
+export function deleteSkill(
+  id: string,
+  options: ApiRequestOptions = {},
+): Promise<void> {
+  return apiClient.delete(`/learning/skills/${encodeId(id)}`, options);
 }
 
 export type CreateReadingEntryInput = Omit<ReadingEntry, "id">;

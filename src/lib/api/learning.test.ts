@@ -2,12 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createReadingEntry,
   createRoadmap,
+  createSkill,
   deleteReadingEntry,
   deleteRoadmap,
+  deleteSkill,
   getDueCards,
+  getSkills,
   reviewCard,
   updateReadingEntry,
   updateRoadmap,
+  updateSkill,
 } from "./learning.ts";
 
 beforeEach(() => {
@@ -20,6 +24,20 @@ afterEach(() => {
 });
 
 describe("learning backend adapter", () => {
+  it("preserves the server's skill ordering", async () => {
+    const skills = [
+      { id: "skill-2", roadmap_id: "roadmap-1", name: "Zulu" },
+      { id: "skill-1", roadmap_id: "roadmap-1", name: "alpha" },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(Response.json(skills));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getSkills()).resolves.toEqual(skills);
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://api.example.test/api/v1/learning/skills",
+    );
+  });
+
   it("requests server-side due filtering", async () => {
     const cards = [{ id: "due", next_review: "2020-01-01T00:00:00Z" }];
     const fetchMock = vi.fn().mockResolvedValue(Response.json(cards));
@@ -129,6 +147,78 @@ describe("learning backend adapter", () => {
       3,
       "https://api.example.test/api/v1/learning/reading/read%2Fone",
       expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+
+  it("uses exact skill CRUD paths and strips server-owned or unknown fields", async () => {
+    const saved = {
+      id: "skill-1",
+      roadmap_id: "roadmap-1",
+      name: "TypeScript",
+      category: "Engineering",
+      current_level: "beginner",
+      target_level: "advanced",
+      gap_score: 0,
+      resources: ["https://example.test/course"],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(saved, { status: 201 }))
+      .mockResolvedValueOnce(Response.json(saved))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createSkill({
+      ...saved,
+      created_at: "2026-09-20T00:00:00.000Z",
+      user_id: "server-user",
+      skills_total: 99,
+      skills_completed: 98,
+      unknown: "drop-me",
+    } as unknown as Parameters<typeof createSkill>[0]);
+    await updateSkill("skill/one", {
+      roadmap_id: "roadmap-2",
+      gap_score: 0,
+      resources: [],
+      id: "server-id",
+      user_id: "server-user",
+    } as unknown as Parameters<typeof updateSkill>[1]);
+    await deleteSkill("skill/one");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      "https://api.example.test/api/v1/learning/skills",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          roadmap_id: "roadmap-1",
+          name: "TypeScript",
+          category: "Engineering",
+          current_level: "beginner",
+          target_level: "advanced",
+          gap_score: 0,
+          resources: ["https://example.test/course"],
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.example.test/api/v1/learning/skills/skill%2Fone",
+      expect.objectContaining({
+        method: "PATCH",
+        credentials: "include",
+        body: JSON.stringify({
+          roadmap_id: "roadmap-2",
+          gap_score: 0,
+          resources: [],
+        }),
+      }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://api.example.test/api/v1/learning/skills/skill%2Fone",
+      expect.objectContaining({ method: "DELETE", credentials: "include" }),
     );
   });
 });

@@ -55,6 +55,38 @@ Projects provides create/edit/delete controls for projects, sprints, tasks, and
 milestones, plus keyboard-accessible Kanban status changes. All Projects views
 share refreshed backend data. See [integration notes and browser checklist](docs/projects-integration.md).
 
+## Versioning and deployment
+
+`app.config.json` is the single source for the displayed application version.
+ILTO uses `major.minor.iteration`, with a minimum two-digit iteration counter;
+the current version is `0.1.00`. This is intentionally independent of npm's
+SemVer package metadata.
+
+```bash
+npm run app:version
+npm run app:version -- bump iteration  # 0.1.00 -> 0.1.01
+npm run app:version -- bump minor      # 0.1.00 -> 0.2.00
+npm run app:version -- bump major      # 0.1.00 -> 1.0.00
+npm run app:version -- set 0.5.00
+```
+
+The deploy workflow defaults to an iteration bump, then runs lint, tests,
+formatting, and the production build. A failed preparation restores the previous
+version. Without a target it only prepares `dist/`; an explicit target publishes
+with rsync and leaves older hashed assets in place.
+
+```bash
+npm run deploy
+VITE_API_BASE_URL=https://ilto.example.com/api/v1 npm run deploy -- \
+  --target user@server:/var/www/ilto/
+npm run deploy -- --bump minor --target user@server:/var/www/ilto/
+npm run deploy -- --no-bump --target user@server:/var/www/ilto/
+```
+
+The target must be an absolute remote directory ending in `/`. The account must
+already have SSH/rsync access and write permission. The script does not commit,
+tag, push, change the backend, or configure the web server.
+
 ## Checks
 
 ```bash

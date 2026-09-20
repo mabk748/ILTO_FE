@@ -1,13 +1,16 @@
 {
   "name": "app-template",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "app:version": "node scripts/version.mjs",
     "dev": "vite",
+    "deploy": "node scripts/deploy.mjs",
     "preview": "vite preview",
     "build": "tsc -b && vite build",
-    "test": "vitest run",
+    "test": "npm run test:unit && npm run test:version",
+    "test:unit": "vitest run",
+    "test:version": "node --test scripts/version.test.mjs",
     "lint": "eslint .",
     "prettier-fix": "prettier --write .",
     "prettier-check": "prettier --check ."

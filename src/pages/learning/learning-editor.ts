@@ -1,6 +1,12 @@
 import * as api from "@/lib/api/learning.ts";
 import { ApiError } from "@/lib/api/errors.ts";
-import type { LearningRoadmap, ReadingEntry, Status } from "@/lib/api/types.ts";
+import type {
+  LearningRoadmap,
+  ReadingEntry,
+  SkillLevel,
+  SkillNode,
+  Status,
+} from "@/lib/api/types.ts";
 
 export const roadmapStatuses = [
   "active",
@@ -9,8 +15,16 @@ export const roadmapStatuses = [
   "archived",
 ] as const satisfies readonly Status[];
 
+export const skillLevels = [
+  "beginner",
+  "intermediate",
+  "advanced",
+  "expert",
+] as const satisfies readonly SkillLevel[];
+
 export type LearningTarget =
   | { kind: "roadmap"; record?: LearningRoadmap }
+  | { kind: "skill"; roadmapId?: string; record?: SkillNode }
   | { kind: "reading"; record?: ReadingEntry };
 
 export type LearningDraft = Record<string, string>;
@@ -48,6 +62,12 @@ function text(value: string, label: string, maxLength: number): string {
   return trimmed;
 }
 
+function nonblank(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) throw new Error(`${label} is required.`);
+  return trimmed;
+}
+
 function wholeNumber(value: string, label: string): number {
   if (!/^\d+$/.test(value)) {
     throw new Error(`${label} must be a nonnegative whole number.`);
@@ -55,6 +75,19 @@ function wholeNumber(value: string, label: string): number {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed)) {
     throw new Error(`${label} must be a safe whole number.`);
+  }
+  return parsed;
+}
+
+function boundedWholeNumber(
+  value: string,
+  label: string,
+  minimum: number,
+  maximum: number,
+): number {
+  const parsed = wholeNumber(value, label);
+  if (parsed < minimum || parsed > maximum) {
+    throw new Error(`${label} must be from ${minimum} through ${maximum}.`);
   }
   return parsed;
 }
@@ -83,12 +116,39 @@ export function tags(value: string): string[] {
   return result;
 }
 
+export function resources(value: string): string[] {
+  if (!value.trim()) return [];
+  const result = value
+    .split(/\r?\n/)
+    .map((resource) => resource.trim())
+    .filter(Boolean);
+  if (result.length > 50) {
+    throw new Error("A skill may have at most 50 resources.");
+  }
+  if (result.some((resource) => resource.length > 2000)) {
+    throw new Error("Each resource must be at most 2,000 characters.");
+  }
+  return result;
+}
+
 export function initialDraft(target: LearningTarget): LearningDraft {
   if (target.kind === "roadmap") {
     return {
       name: target.record?.name ?? "",
       goal: target.record?.goal ?? "",
       status: target.record?.status ?? "active",
+    };
+  }
+
+  if (target.kind === "skill") {
+    return {
+      roadmap_id: target.record?.roadmap_id ?? target.roadmapId ?? "",
+      name: target.record?.name ?? "",
+      category: target.record?.category ?? "",
+      current_level: target.record?.current_level ?? "beginner",
+      target_level: target.record?.target_level ?? "beginner",
+      gap_score: target.record?.gap_score.toString() ?? "0",
+      resources: target.record?.resources.join("\n") ?? "",
     };
   }
 
@@ -111,12 +171,31 @@ export function initialDraft(target: LearningTarget): LearningDraft {
 export function buildLearningInput(
   target: LearningTarget,
   values: LearningDraft,
-): api.CreateRoadmapInput | api.CreateReadingEntryInput {
+  roadmaps: readonly LearningRoadmap[] = [],
+): api.CreateRoadmapInput | api.CreateSkillInput | api.CreateReadingEntryInput {
   if (target.kind === "roadmap") {
     return {
       name: text(values.name, "Name", 200),
       goal: text(values.goal, "Goal", 4000),
       status: choice(values.status, roadmapStatuses, "roadmap status"),
+    };
+  }
+
+  if (target.kind === "skill") {
+    const roadmapId = values.roadmap_id;
+    if (!roadmaps.some((roadmap) => roadmap.id === roadmapId)) {
+      throw new Error(
+        "Choose a roadmap returned for the current signed-in user.",
+      );
+    }
+    return {
+      roadmap_id: roadmapId,
+      name: nonblank(values.name, "Name"),
+      category: nonblank(values.category, "Category"),
+      current_level: choice(values.current_level, skillLevels, "current level"),
+      target_level: choice(values.target_level, skillLevels, "target level"),
+      gap_score: boundedWholeNumber(values.gap_score, "Gap score", 0, 100),
+      resources: resources(values.resources),
     };
   }
 
@@ -164,8 +243,9 @@ export function changedFields<T extends object>(
 export async function saveLearningResource(
   target: LearningTarget,
   values: LearningDraft,
+  roadmaps: readonly LearningRoadmap[] = [],
 ) {
-  const input = buildLearningInput(target, values);
+  const input = buildLearningInput(target, values, roadmaps);
   if (target.kind === "roadmap") {
     const roadmap = input as api.CreateRoadmapInput;
     return target.record
@@ -174,6 +254,12 @@ export async function saveLearningResource(
           changedFields(roadmap, target.record),
         )
       : api.createRoadmap(roadmap);
+  }
+  if (target.kind === "skill") {
+    const skill = input as api.CreateSkillInput;
+    return target.record
+      ? api.updateSkill(target.record.id, changedFields(skill, target.record))
+      : api.createSkill(skill);
   }
   const entry = input as api.CreateReadingEntryInput;
   return target.record
@@ -186,19 +272,19 @@ export async function saveLearningResource(
 
 export function removeLearningResource(target: LearningTarget): Promise<void> {
   if (!target.record) throw new Error("Select a saved record first.");
-  return target.kind === "roadmap"
-    ? api.deleteRoadmap(target.record.id)
-    : api.deleteReadingEntry(target.record.id);
+  if (target.kind === "roadmap") return api.deleteRoadmap(target.record.id);
+  if (target.kind === "skill") return api.deleteSkill(target.record.id);
+  return api.deleteReadingEntry(target.record.id);
 }
 
 export function learningWriteError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 404)
-      return "This Learning record no longer exists. Refresh and try again.";
+      return "This Learning record or selected roadmap no longer exists for the signed-in user. Refresh and try again.";
     if (error.status === 409)
       return "The backend rejected this change because it conflicts with related Learning data.";
     if (error.status === 422)
-      return "The backend rejected these values. Check the required fields, counts, tags, and timestamps.";
+      return "The backend rejected these values. Check the required fields, levels, scores, resources, counts, tags, and timestamps.";
     if (
       error.status === 503 ||
       error.code === "network" ||
