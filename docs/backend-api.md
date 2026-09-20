@@ -7,7 +7,8 @@ No backend code, authentication server, or automation evaluator is implemented h
 ## Connection and migration
 
 The saved Settings API URL takes priority over `VITE_API_BASE_URL`.
-Both contain the full root, e.g. `http://localhost:8001/api/v1`.
+The deployed build uses the same-origin relative root `/api/v1`; trusted absolute
+HTTP(S) roots remain supported for explicit development overrides.
 Endpoint paths below are appended to that root without repeating `/api/v1`.
 The previous hardcoded n8n URLs and `VITE_API_BASE` override are retired.
 

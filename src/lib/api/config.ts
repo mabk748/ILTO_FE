@@ -1,10 +1,17 @@
 import { loadSettings } from "../settings.ts";
 import { ApiError } from "./errors.ts";
 
-/** The base includes the API prefix, for example https://example.test/api/v1. */
+const RELATIVE_ORIGIN = "https://same-origin.invalid";
+
+/** The base includes the API prefix, for example /api/v1. */
 export function normalizeApiBaseUrl(value: string): string {
+  const trimmed = value.trim();
   try {
-    const url = new URL(value.trim());
+    const relative = trimmed.startsWith("/");
+    if (relative && trimmed.startsWith("//")) {
+      throw new Error("Protocol-relative URLs are not allowed");
+    }
+    const url = new URL(trimmed, relative ? RELATIVE_ORIGIN : undefined);
     if (
       !["http:", "https:"].includes(url.protocol) ||
       url.username ||
@@ -14,10 +21,16 @@ export function normalizeApiBaseUrl(value: string): string {
     ) {
       throw new Error("Invalid API base URL");
     }
+    if (relative) {
+      if (url.origin !== RELATIVE_ORIGIN) {
+        throw new Error("The relative API base escaped the current origin");
+      }
+      return url.pathname.replace(/\/+$/, "") || "/";
+    }
     return url.href.replace(/\/+$/, "");
   } catch (cause) {
     throw new ApiError(
-      "Enter an HTTP(S) API base URL without credentials, a query, or a fragment.",
+      "Enter /api/v1 or an HTTP(S) API base URL without credentials, a query, or a fragment.",
       "configuration",
       { cause },
     );

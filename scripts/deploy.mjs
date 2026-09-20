@@ -11,15 +11,15 @@ function usage() {
   npm run deploy
   npm run deploy -- --bump <iteration|minor|major>
   npm run deploy -- --no-bump
-  npm run deploy -- --target <user@host:/absolute/web/root/>
+  npm run deploy -- --apply
 
-The default bump is "iteration". Without --target, the command validates and
-builds dist/ but does not contact a server. Uploads use rsync and do not delete
-older remote assets.`);
+The default bump is "iteration". Without --apply, the command validates and
+builds dist/ but does not change Docker. --apply invokes the guarded frontend-only
+Compose deployment for the existing stack project.`);
 }
 
 function parseArgs(args) {
-  const options = { bump: "iteration", target: null, help: false };
+  const options = { bump: "iteration", apply: false, help: false };
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--help" || argument === "-h") {
@@ -31,24 +31,13 @@ function parseArgs(args) {
       if (!value) throw new Error("--bump requires a value.");
       options.bump = value;
       index += 1;
-    } else if (argument === "--target") {
-      const value = args[index + 1];
-      if (!value) throw new Error("--target requires a value.");
-      options.target = value;
-      index += 1;
+    } else if (argument === "--apply") {
+      options.apply = true;
     } else {
       throw new Error(`Unknown deploy argument "${argument}".`);
     }
   }
   return options;
-}
-
-function validateTarget(target) {
-  if (!/^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:\/.+\/$/.test(target)) {
-    throw new Error(
-      "Deploy target must look like user@host:/absolute/web/root/ and end with a slash.",
-    );
-  }
 }
 
 function run(command, args) {
@@ -73,8 +62,6 @@ async function main() {
     usage();
     return;
   }
-  if (options.target) validateTarget(options.target);
-
   const originalVersion = await readVersion();
   const releaseVersion = options.bump
     ? nextVersion(originalVersion, options.bump)
@@ -100,21 +87,17 @@ async function main() {
     throw error;
   }
 
-  if (!options.target) {
+  if (!options.apply) {
     console.log(
-      `\nILTO ${releaseVersion} is ready in ${path.join(projectRoot, "dist")}. No deploy target was supplied, so nothing was uploaded.`,
+      `\nILTO ${releaseVersion} is ready in ${path.join(projectRoot, "dist")}. --apply was not supplied, so Docker was not changed.`,
     );
     return;
   }
 
-  run("rsync", [
-    "--archive",
-    "--compress",
-    "--human-readable",
-    "dist/",
-    options.target,
-  ]);
-  console.log(`\nDeployed ILTO ${releaseVersion} to ${options.target}.`);
+  run("sh", [path.join(projectRoot, "scripts/deploy-frontend.sh")]);
+  console.log(
+    `\nDeployed ILTO ${releaseVersion} as the stack frontend service.`,
+  );
 }
 
 main().catch((error) => {

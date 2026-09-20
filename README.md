@@ -12,12 +12,12 @@ npm install
 npm run dev
 ```
 
-Set **API Base URL** in Settings and save, for example
-`http://localhost:8001/api/v1`. Alternatively, copy `.env.example` to
-`.env.local` and configure `VITE_API_BASE_URL` (restart Vite after environment
-changes). A saved Settings URL overrides the environment default. Clearing it
-restores the default. Without either, data screens display a configuration
-error. Connection Settings remain accessible before sign-in.
+The production default is the same-origin path `/api/v1`. For direct local
+development, save a trusted absolute HTTP(S) API root in **Settings**, or copy
+`.env.example` to `.env.local` and configure `VITE_API_BASE_URL` (restart Vite
+after environment changes). A saved Settings URL overrides the environment
+default. Clearing it restores the default. Without either, data screens display
+a configuration error. Connection Settings remain accessible before sign-in.
 
 All domain functions call the configured backend. Owner authentication and the
 Projects module are implemented in the separate ILTO_BE repository; other
@@ -59,8 +59,8 @@ share refreshed backend data. See [integration notes and browser checklist](docs
 
 `app.config.json` is the single source for the displayed application version.
 ILTO uses `major.minor.iteration`, with a minimum two-digit iteration counter;
-the current version is `0.1.00`. This is intentionally independent of npm's
-SemVer package metadata.
+use `npm run app:version` to read the current tracked value. This is intentionally
+independent of npm's SemVer package metadata.
 
 ```bash
 npm run app:version
@@ -72,20 +72,25 @@ npm run app:version -- set 0.5.00
 
 The deploy workflow defaults to an iteration bump, then runs lint, tests,
 formatting, and the production build. A failed preparation restores the previous
-version. Without a target it only prepares `dist/`; an explicit target publishes
-with rsync and leaves older hashed assets in place.
+version. Without `--apply` it only prepares `dist/` and does not change Docker.
+Run the apply form from the existing server checkout to build and recreate only
+the `stack` project's `frontend` service.
 
 ```bash
 npm run deploy
-VITE_API_BASE_URL=https://ilto.example.com/api/v1 npm run deploy -- \
-  --target user@server:/var/www/ilto/
-npm run deploy -- --bump minor --target user@server:/var/www/ilto/
-npm run deploy -- --no-bump --target user@server:/var/www/ilto/
+npm run deploy -- --apply
+npm run deploy -- --bump minor --apply
+npm run deploy -- --no-bump --apply
+npm run deploy:verify
 ```
 
-The target must be an absolute remote directory ending in `/`. The account must
-already have SSH/rsync access and write permission. The script does not commit,
-tag, push, change the backend, or configure the web server.
+The guarded deployment requires the existing `stack_ilto_network`, creates the
+internal external network `ilto-backend-proxy` when absent, builds the Nginx
+image, verifies its syntax, and runs Compose with `--no-deps frontend`. It does
+not stop or restart the rest of `stack`, touch PostgreSQL, publish backend ports,
+or configure Cloudflare. After the backend API joins the shared proxy network,
+`npm run deploy:verify` checks Docker DNS, backend health, and the expected 401
+through the browser-facing API proxy. See [deployment details](docs/deployment.md).
 
 ## Checks
 

@@ -10,8 +10,8 @@ export default function ApiDocsPage() {
       </h1>
       <p className="text-sm text-muted-foreground">
         Proposed routes for the separate backend repository. Set the full API
-        root in Settings (for example http://localhost:8001/api/v1). All paths
-        below are relative to that root.
+        root in Settings, or use the deployed same-origin default /api/v1. All
+        paths below are relative to that root.
       </p>
       <p className="text-sm text-muted-foreground">
         These declarations do not indicate that a server is running. Create and

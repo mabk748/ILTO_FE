@@ -24,7 +24,20 @@ export interface ApiRequestOptions {
 type Method = "GET" | "POST" | "PATCH" | "DELETE";
 
 function buildUrl(path: string, query?: ApiQuery): URL {
-  const base = `${getApiBaseUrl()}/`;
+  const configuredBase = getApiBaseUrl();
+  let base: string;
+  try {
+    base = new URL(
+      `${configuredBase}/`,
+      configuredBase.startsWith("/") ? globalThis.location?.origin : undefined,
+    ).href;
+  } catch (cause) {
+    throw new ApiError(
+      "A relative API base URL requires a browser origin.",
+      "configuration",
+      { cause },
+    );
+  }
   // Endpoint paths are relative to the API root, including a leading slash.
   if (/^[a-z][a-z\d+.-]*:/i.test(path) || path.startsWith("//")) {
     throw new ApiError(

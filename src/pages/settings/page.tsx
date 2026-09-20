@@ -156,8 +156,8 @@ export default function SettingsPage() {
             API Configuration
           </CardTitle>
           <CardDescription className="text-xs">
-            Save your backend base URL, including its API prefix. Leave blank to
-            use the environment default.
+            Save a trusted backend root, including its API prefix. Leave blank
+            to use the same-origin deployment default.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -167,8 +167,9 @@ export default function SettingsPage() {
             </Label>
             <Input
               id="apiBaseUrl"
-              type="url"
-              placeholder="http://localhost:8001/api/v1"
+              type="text"
+              inputMode="url"
+              placeholder="/api/v1"
               value={settings.apiBaseUrl}
               onChange={(e) =>
                 setSettings((prev) => ({
@@ -179,10 +180,10 @@ export default function SettingsPage() {
               className="font-mono text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              Example:{" "}
-              <span className="font-mono">http://localhost:8001/api/v1</span>.
-              Use localhost for both apps so session cookies work. Only save a
-              backend URL you trust with your owner credentials.
+              The deployed default is <span className="font-mono">/api/v1</span>{" "}
+              through the same origin. An absolute HTTP(S) URL remains available
+              for explicit development overrides. Only save a backend you trust
+              with your owner credentials.
             </p>
           </div>
 

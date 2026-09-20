@@ -1,5 +1,51 @@
 # Changelog
 
+## 2026-09-20 — Frontend container deployment preparation
+
+- Added a multi-stage Node/Vite to `nginx:alpine` image that fixes the deployed
+  browser API root to same-origin `/api/v1`. The API client now safely accepts a
+  root-relative base while retaining saved trusted HTTP(S) development
+  overrides and `credentials: "include"` requests.
+- Added a frontend-only `stack` Compose definition that preserves the
+  `ilto_frontend` name and host port 8080, retains `stack_ilto_network`, and
+  joins the external `ilto-backend-proxy` network without defining or attaching
+  to PostgreSQL or the backend's private/default network.
+- Added dynamic Docker-DNS Nginx resolution for `api:8001`. Only `/api/` is
+  proxied, with the request path unchanged; all other paths retain the SPA
+  fallback, and no CORS or public backend documentation routes were introduced.
+- Replaced the previous rsync apply path with a guarded frontend-only Compose
+  deployment. It verifies the existing project, service, container, port, and
+  stack network before creating the internal proxy network, building the image,
+  checking Nginx, and recreating only `frontend` with `--no-deps`. A separate
+  read-only verifier covers both networks, host SPA access, backend health from
+  the frontend container, and the unauthenticated API 401.
+- Added deployment documentation and safety tests. No npm package or package
+  version was added or changed.
+
+### Actual checks
+
+- `docker compose --project-name stack --file compose.frontend.yaml config`:
+  rendered successfully with only `frontend`, host mapping `8080:80`, and the
+  two external networks.
+- `docker compose --project-name stack --file compose.frontend.yaml build frontend`:
+  built `ilto-frontend:latest`; the container build passed TypeScript/Vite and
+  transformed 3,051 modules.
+- `docker run --rm --entrypoint nginx ilto-frontend:latest -t`: passed. A
+  temporary unexposed container also started before any backend was available
+  and served `/` with HTTP 200.
+- `npm test`: 57 Vitest files and 291 tests passed, followed by the Node version
+  and deployment workflow tests.
+- `npm run lint`, `npx tsc -b --pretty false`,
+  `npm run prettier-check`, `npm run build`, shell syntax checks, and
+  `git diff --check`: passed; the standalone Vite build transformed 3,051
+  modules.
+- `npm run deploy -- --no-bump`: completed the full preparation workflow for
+  ILTO 0.1.01 and explicitly made no Docker changes.
+- The available Docker host is not the existing server and has no
+  `ilto_frontend` container. No frontend was recreated and no network was
+  created, so live server network membership, localhost:8080, backend health,
+  and proxied 401 checks remain pending.
+
 ## 2026-09-20 — Learning skill CRUD integration
 
 - Added authenticated Learning skill create, partial-update, and delete adapters

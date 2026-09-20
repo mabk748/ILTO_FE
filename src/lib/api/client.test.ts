@@ -59,6 +59,18 @@ describe("API destination", () => {
     );
   });
 
+  it("resolves the deployment default against the browser origin", async () => {
+    fetchMock.mockResolvedValue(jsonResponse([]));
+    vi.stubEnv("VITE_API_BASE_URL", "/api/v1/");
+
+    await apiClient.get("/learning/skills");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      `${window.location.origin}/api/v1/learning/skills`,
+    );
+    expect(fetchMock.mock.calls[0][1]?.credentials).toBe("include");
+  });
+
   it("fails before fetching if neither Settings nor the environment has a URL", async () => {
     vi.stubEnv("VITE_API_BASE_URL", "");
     await expect(apiClient.get("/projects")).rejects.toMatchObject({
@@ -69,6 +81,7 @@ describe("API destination", () => {
 
   it.each([
     "not-a-url",
+    "//other.example.test/api/v1",
     "ftp://example.test",
     "https://user:password@example.test/api/v1",
     "https://example.test/api/v1?resource=project",

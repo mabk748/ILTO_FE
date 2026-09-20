@@ -1,0 +1,11 @@
+.git
+.agents
+.codex
+graphify-out
+node_modules
+dist
+dist-ssr
+.env*
+*.log
+*.local
+tsconfig.tsbuildinfo
