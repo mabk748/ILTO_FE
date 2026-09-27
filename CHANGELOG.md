@@ -1,5 +1,52 @@
 # Changelog
 
+## 2026-09-27 — Finance workflow and application time zone
+
+- Made Transactions the first/default Finance view and moved the complete,
+  newest-first transaction table out of Budget. Transactions now show category,
+  explicit currency, payment method, full selected-zone date/time, tags, amount,
+  and server-confirmed edit/delete controls.
+- Replaced the single display currency with an accessible all/subset filter for
+  EUR, MAD, and USD while retaining a separate new-entry default. Finance lists,
+  summaries, bills, portfolio records, Dashboard values, Appearance spend, and
+  Intelligence comparisons honor the selection without adding monetary values
+  from unlike currencies. Privacy masking remains available globally.
+- Added transaction payment metadata for cash, bank transfer, card, mobile
+  payment, direct debit, and other. Transaction entry now selects currency
+  explicitly and only offers matching budget categories.
+- Added a validated IANA time-zone setting. The live Dashboard clock, absolute
+  timestamps, chart labels, and all existing `datetime-local` editors now use
+  that setting while API requests continue to send UTC ISO instants. The
+  setting is browser-local pending the documented backend preference endpoint.
+- Expanded the backend handoff with currency/payment migrations, integrity
+  rules, and a user-scoped time-zone synchronization contract. No package or
+  package version was added or changed.
+
+### Actual checks
+
+- `npm test`: 64 Vitest files and 316 tests passed, followed by the Node version
+  and deployment workflow tests.
+- `npx tsc -b --pretty false`, `npm run lint`, `npm run prettier-check`, and
+  `git diff --check`: passed.
+- `npm run build`: TypeScript and the production Vite build passed; 3,057
+  modules were transformed.
+- Live browser/API verification was not run. The backend guide says migration
+  `0013_finance_multi_currency` is prepared but not applied, and payment type
+  plus the preference endpoints still require backend implementation. No real
+  financial records were created or modified.
+
+## 2026-09-25 — Honest Dashboard no-data scores
+
+- Changed Dashboard domain scores to use `null` when their required source
+  records are absent, preserving numeric zero only for a real calculated score.
+- Added a neutral “No data” presentation with no percentage fill or Critical
+  label. Learning now requires at least one stored card, Work requires at least
+  one deadline, and the composite System score requires all three of its source
+  scores before it is calculated.
+- Added focused calculation and rendering coverage for empty inputs, valid zero
+  scores, source-record requirements, and the neutral no-data state. No package
+  was added or changed.
+
 ## 2026-09-20 — Frontend container deployment preparation
 
 - Added a multi-stage Node/Vite to `nginx:alpine` image that fixes the deployed

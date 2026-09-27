@@ -8,9 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils.ts";
 import { workWriteError } from "../work-editor.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   items: ComplianceItem[];
@@ -28,6 +29,7 @@ function compareItems(left: ComplianceItem, right: ComplianceItem): number {
 }
 
 export default function ComplianceChecklist({ items }: Props) {
+  const timeZone = useTimeZone();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const mutation = useMutation({
@@ -137,7 +139,11 @@ export default function ComplianceChecklist({ items }: Props) {
                     <div className="flex items-center gap-2 mt-1">
                       {item.due_date && (
                         <span className="text-xs text-muted-foreground">
-                          Due {format(new Date(item.due_date), "MMM d")}
+                          Due{" "}
+                          {formatInstant(item.due_date, timeZone, {
+                            month: "short",
+                            day: "numeric",
+                          })}
                         </span>
                       )}
                       {item.recurrence && (

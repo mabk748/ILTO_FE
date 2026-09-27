@@ -9,8 +9,11 @@ import { cn } from "@/lib/utils.ts";
 import { getTriggerLog, resolveTriggerLogEntry } from "@/lib/api/triggers.ts";
 import type { TriggerLogEntry } from "@/lib/api/triggers.ts";
 import type { DomainName } from "@/lib/api/types.ts";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { triggerWriteError } from "../trigger-editor.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 const DOMAIN_COLORS: Record<DomainName, string> = {
   projects: "bg-violet-500/20 text-violet-400 border-violet-500/30",
@@ -28,10 +31,14 @@ function LogRow({
   entry,
   onResolve,
   pending,
+  masked,
+  timeZone,
 }: {
   entry: TriggerLogEntry;
   onResolve: (id: string) => void;
   pending: boolean;
+  masked: boolean;
+  timeZone: string;
 }) {
   return (
     <div
@@ -60,15 +67,26 @@ function LogRow({
           <span className="text-xs font-semibold">{entry.rule_name}</span>
         </div>
         <p className="text-xs text-muted-foreground">
-          <span className="text-foreground font-mono">
-            {entry.condition_summary}
-          </span>
-          {" → "}
-          {entry.action_summary}
+          {masked && entry.domain === "finances" ? (
+            "Financial trigger details hidden"
+          ) : (
+            <>
+              <span className="text-foreground font-mono">
+                {entry.condition_summary}
+              </span>
+              {" → "}
+              {entry.action_summary}
+            </>
+          )}
         </p>
         <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted-foreground">
           <Clock className="h-3 w-3" />
-          <span title={format(new Date(entry.triggered_at), "PPpp")}>
+          <span
+            title={formatInstant(entry.triggered_at, timeZone, {
+              dateStyle: "medium",
+              timeStyle: "medium",
+            })}
+          >
             {formatDistanceToNow(new Date(entry.triggered_at), {
               addSuffix: true,
             })}
@@ -94,6 +112,8 @@ function LogRow({
 }
 
 export default function TriggerLog() {
+  const { masked } = useFinancePreferences();
+  const timeZone = useTimeZone();
   const queryClient = useQueryClient();
   const {
     data: log = [],
@@ -192,6 +212,8 @@ export default function TriggerLog() {
                 entry={entry}
                 onResolve={handleResolve}
                 pending={resolution.isPending}
+                masked={masked}
+                timeZone={timeZone}
               />
             ))}
           </CardContent>

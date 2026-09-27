@@ -13,6 +13,7 @@ const category: BudgetCategory = {
   name: "Housing",
   monthly_limit: 1000,
   spent_this_month: 40,
+  currency: "EUR",
   color: "#123456",
 };
 
@@ -26,6 +27,7 @@ describe("Finance editor contract", () => {
           type: "expense",
           amount: "12.50",
           currency: "EUR",
+          payment_type: "card",
           description: "Lunch",
           date: "2026-09-15T12:00",
           tags: "food, work",
@@ -35,26 +37,75 @@ describe("Finance editor contract", () => {
     ).toMatchObject({
       amount: 12.5,
       currency: "EUR",
+      payment_type: "card",
       tags: ["food", "work"],
     });
     expect(
       buildFinanceInput(
         { kind: "category" },
-        { name: "Housing", monthly_limit: "1000", color: "#123456" },
+        {
+          name: "Housing",
+          monthly_limit: "1000",
+          currency: "MAD",
+          color: "#123456",
+        },
         [],
       ),
-    ).toEqual({ name: "Housing", monthly_limit: 1000, color: "#123456" });
+    ).toEqual({
+      name: "Housing",
+      monthly_limit: 1000,
+      currency: "MAD",
+      color: "#123456",
+    });
     expect(toLocalDateTimeValue("2026-09-15T10:00:00.000Z")).toMatch(
       /^2026-09-15T/,
     );
+    expect(
+      buildFinanceInput(
+        { kind: "bill" },
+        {
+          name: "Hosting",
+          amount: "15.00",
+          currency: "USD",
+          due_date: "2026-09-15T12:00",
+          recurrence: "monthly",
+          paid: "false",
+          category: "Software",
+        },
+        [],
+      ),
+    ).toMatchObject({ amount: 15, currency: "USD", paid: false });
   });
 
-  it("rejects non-EUR, invalid decimals, unknown categories, and bad colors", () => {
+  it("uses the configured time zone for transaction wall time", () => {
+    const input = buildFinanceInput(
+      { kind: "transaction" },
+      {
+        category_id: "category-1",
+        type: "expense",
+        amount: "12.50",
+        currency: "EUR",
+        payment_type: "bank_transfer",
+        description: "Lunch",
+        date: "2026-01-15T07:30",
+        tags: "food",
+      },
+      [category],
+      "America/New_York",
+    );
+    expect(input).toMatchObject({
+      payment_type: "bank_transfer",
+      date: "2026-01-15T12:30:00.000Z",
+    });
+  });
+
+  it("accepts EUR/MAD/USD and rejects unsupported or mismatched currencies", () => {
     const transaction = {
       category_id: "category-1",
       type: "expense",
       amount: "1.234",
       currency: "EUR",
+      payment_type: "cash",
       description: "",
       date: "2026-09-15T12:00",
       tags: "",
@@ -65,10 +116,24 @@ describe("Finance editor contract", () => {
     expect(() =>
       buildFinanceInput(
         { kind: "transaction" },
+        { ...transaction, amount: "1", currency: "GBP" },
+        [category],
+      ),
+    ).toThrow("valid currency");
+    expect(() =>
+      buildFinanceInput(
+        { kind: "transaction" },
         { ...transaction, amount: "1", currency: "USD" },
         [category],
       ),
-    ).toThrow("must be EUR");
+    ).toThrow("match its budget category currency");
+    expect(
+      buildFinanceInput(
+        { kind: "transaction" },
+        { ...transaction, amount: "1", currency: "MAD" },
+        [{ ...category, currency: "MAD" }],
+      ),
+    ).toMatchObject({ amount: 1, currency: "MAD" });
     expect(() =>
       buildFinanceInput(
         { kind: "transaction" },
@@ -79,7 +144,12 @@ describe("Finance editor contract", () => {
     expect(() =>
       buildFinanceInput(
         { kind: "category" },
-        { name: "Housing", monthly_limit: "0", color: "red" },
+        {
+          name: "Housing",
+          monthly_limit: "0",
+          currency: "USD",
+          color: "red",
+        },
         [],
       ),
     ).toThrow("six-digit");
@@ -111,6 +181,12 @@ describe("Finance editor contract", () => {
     ).toEqual({
       amount: 11,
     });
+    expect(
+      changedFields(
+        { amount: 10, currency: "MAD" as const },
+        { amount: 10, currency: "EUR" as const },
+      ),
+    ).toEqual({ currency: "MAD" });
     expect(
       changedFields(
         { due_date: "2026-09-15T10:00:00.000Z" },

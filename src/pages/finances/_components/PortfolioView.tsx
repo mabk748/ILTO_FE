@@ -2,6 +2,7 @@ import type {
   NetWorthSnapshot,
   TradeEntry,
   AssetClass,
+  FinanceCurrency,
 } from "@/lib/api/types.ts";
 import {
   Card,
@@ -9,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
-import { format } from "date-fns";
 import {
   AreaChart,
   Area,
@@ -20,6 +20,15 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { cn } from "@/lib/utils.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import {
+  financeCurrency,
+  FINANCIAL_VALUE_MASK,
+  formatCompactMoney,
+  formatMoney,
+} from "@/lib/finance.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   netWorth: NetWorthSnapshot[];
@@ -35,64 +44,87 @@ const ASSET_CLASS_STYLES: Record<AssetClass, string> = {
   other: "bg-muted text-muted-foreground border-border",
 };
 
-export default function PortfolioView({ netWorth, trades }: Props) {
-  const orderedNetWorth = [...netWorth].sort(
-    (left, right) =>
-      new Date(left.date).getTime() - new Date(right.date).getTime(),
+function CurrencyPortfolio({
+  currency,
+  netWorth,
+  trades,
+  masked,
+  timeZone,
+}: Props & {
+  currency: FinanceCurrency;
+  masked: boolean;
+  timeZone: string;
+}) {
+  const orderedNetWorth = netWorth
+    .filter((snapshot) => financeCurrency(snapshot.currency) === currency)
+    .sort(
+      (left, right) =>
+        new Date(left.date).getTime() - new Date(right.date).getTime(),
+    );
+  const activeTrades = trades.filter(
+    (trade) => financeCurrency(trade.currency) === currency,
   );
-  const chartData = orderedNetWorth.map((n) => ({
-    timestamp: new Date(n.date).getTime(),
-    assets: n.total_assets,
-    liabilities: n.total_liabilities,
-    net: n.net_worth,
+  const chartData = orderedNetWorth.map((snapshot) => ({
+    timestamp: new Date(snapshot.date).getTime(),
+    assets: snapshot.total_assets,
+    liabilities: snapshot.total_liabilities,
+    net: snapshot.net_worth,
   }));
-
-  const latest = orderedNetWorth[orderedNetWorth.length - 1];
-  const totalInvested = trades
-    .filter((t) => t.action === "buy")
-    .reduce((a, t) => a + t.quantity * t.price, 0);
+  const latest = orderedNetWorth.at(-1);
+  const grossBuyValue = activeTrades
+    .filter((trade) => trade.action === "buy")
+    .reduce((total, trade) => total + trade.quantity * trade.price, 0);
 
   return (
-    <div className="space-y-4">
-      {/* Summary card */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+    <section className="space-y-4" aria-labelledby={`portfolio-${currency}`}>
+      <h2 id={`portfolio-${currency}`} className="text-sm font-semibold">
+        {currency} portfolio records
+      </h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Card>
-          <CardContent className="pt-4 pb-3">
+          <CardContent className="pb-3 pt-4">
             <p className="text-xs text-muted-foreground">Net Worth</p>
             <p className="text-xl font-bold text-primary">
-              €{latest?.net_worth.toLocaleString() ?? "—"}
+              {latest ? formatMoney(latest.net_worth, currency, masked) : "—"}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4 pb-3">
+          <CardContent className="pb-3 pt-4">
             <p className="text-xs text-muted-foreground">Total Assets</p>
             <p className="text-xl font-bold">
-              €{latest?.total_assets.toLocaleString() ?? "—"}
+              {latest
+                ? formatMoney(latest.total_assets, currency, masked)
+                : "—"}
             </p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-4 pb-3">
+          <CardContent className="pb-3 pt-4">
             <p className="text-xs text-muted-foreground">
               Gross buy value (before sells)
             </p>
             <p className="text-xl font-bold">
-              €{totalInvested.toLocaleString()}
+              {formatMoney(grossBuyValue, currency, masked)}
             </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Net worth chart */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Net Worth Timeline</CardTitle>
+          <CardTitle className="text-sm">
+            Net Worth Timeline ({currency})
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {chartData.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-20">
-              No net-worth snapshots available.
+          {masked ? (
+            <p className="py-20 text-center text-sm text-muted-foreground">
+              Financial chart hidden.
+            </p>
+          ) : chartData.length === 0 ? (
+            <p className="py-20 text-center text-sm text-muted-foreground">
+              No net-worth snapshots available for {currency}.
             </p>
           ) : (
             <ResponsiveContainer width="100%" height={200}>
@@ -104,15 +136,15 @@ export default function PortfolioView({ netWorth, trades }: Props) {
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value: number) =>
-                    format(new Date(value), "MMM")
+                    formatInstant(value, timeZone, { month: "short" })
                   }
                 />
                 <YAxis
                   tick={{ fontSize: 10 }}
                   tickLine={false}
                   axisLine={false}
-                  tickFormatter={(v) =>
-                    `€${((v as number) / 1000).toFixed(0)}k`
+                  tickFormatter={(value) =>
+                    formatCompactMoney(value as number, currency)
                   }
                 />
                 <Tooltip
@@ -122,8 +154,17 @@ export default function PortfolioView({ netWorth, trades }: Props) {
                     borderRadius: 6,
                     fontSize: 12,
                   }}
-                  formatter={(v: unknown) => [
-                    `€${typeof v === "number" ? v.toLocaleString() : v}`,
+                  labelFormatter={(value) =>
+                    formatInstant(Number(value), timeZone, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  }
+                  formatter={(value: unknown) => [
+                    typeof value === "number"
+                      ? formatMoney(value, currency)
+                      : String(value ?? ""),
                     "",
                   ]}
                 />
@@ -149,62 +190,67 @@ export default function PortfolioView({ netWorth, trades }: Props) {
         </CardContent>
       </Card>
 
-      {/* Trade log */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Trade Log</CardTitle>
+          <CardTitle className="text-sm">Trade Log ({currency})</CardTitle>
         </CardHeader>
         <CardContent>
-          {trades.length === 0 ? (
+          {activeTrades.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No trades available.
+              No trades available for {currency}.
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-xs text-muted-foreground border-b border-border">
-                    <th className="text-left pb-2 font-medium">Ticker</th>
-                    <th className="text-left pb-2 font-medium">Class</th>
-                    <th className="text-left pb-2 font-medium">Action</th>
-                    <th className="text-right pb-2 font-medium">Qty</th>
-                    <th className="text-right pb-2 font-medium">Price</th>
-                    <th className="text-right pb-2 font-medium">Date</th>
+                  <tr className="border-b border-border text-xs text-muted-foreground">
+                    <th className="pb-2 text-left font-medium">Ticker</th>
+                    <th className="pb-2 text-left font-medium">Class</th>
+                    <th className="pb-2 text-left font-medium">Action</th>
+                    <th className="pb-2 text-right font-medium">Qty</th>
+                    <th className="pb-2 text-right font-medium">Price</th>
+                    <th className="pb-2 text-right font-medium">Date</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {trades.map((t) => (
+                  {activeTrades.map((trade) => (
                     <tr
-                      key={t.id}
+                      key={trade.id}
                       className="border-b border-border last:border-0"
                     >
-                      <td className="py-2 font-semibold">{t.ticker}</td>
+                      <td className="py-2 font-semibold">{trade.ticker}</td>
                       <td className="py-2">
                         <span
                           className={cn(
-                            "text-[10px] px-1.5 py-0.5 rounded-full border",
-                            ASSET_CLASS_STYLES[t.asset_class],
+                            "rounded-full border px-1.5 py-0.5 text-[10px]",
+                            ASSET_CLASS_STYLES[trade.asset_class],
                           )}
                         >
-                          {t.asset_class}
+                          {trade.asset_class}
                         </span>
                       </td>
                       <td
                         className={cn(
-                          "py-2 font-medium text-xs",
-                          t.action === "buy"
+                          "py-2 text-xs font-medium",
+                          trade.action === "buy"
                             ? "text-green-400"
                             : "text-red-400",
                         )}
                       >
-                        {t.action.toUpperCase()}
+                        {trade.action.toUpperCase()}
                       </td>
-                      <td className="py-2 text-right">{t.quantity}</td>
                       <td className="py-2 text-right">
-                        €{t.price.toLocaleString()}
+                        {masked ? FINANCIAL_VALUE_MASK : trade.quantity}
                       </td>
-                      <td className="py-2 text-right text-muted-foreground text-xs">
-                        {format(new Date(t.date), "MMM d, yyyy")}
+                      <td className="py-2 text-right">
+                        {formatMoney(trade.price, currency, masked)}
+                      </td>
+                      <td className="py-2 text-right text-xs text-muted-foreground">
+                        {formatInstant(trade.date, timeZone, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
                       </td>
                     </tr>
                   ))}
@@ -214,6 +260,34 @@ export default function PortfolioView({ netWorth, trades }: Props) {
           )}
         </CardContent>
       </Card>
+    </section>
+  );
+}
+
+export default function PortfolioView({ netWorth, trades }: Props) {
+  const { selectedCurrencies, masked } = useFinancePreferences();
+  const timeZone = useTimeZone();
+
+  if (selectedCurrencies.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select at least one finance currency to display portfolio records.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {selectedCurrencies.map((currency) => (
+        <CurrencyPortfolio
+          key={currency}
+          currency={currency}
+          netWorth={netWorth}
+          trades={trades}
+          masked={masked}
+          timeZone={timeZone}
+        />
+      ))}
     </div>
   );
 }

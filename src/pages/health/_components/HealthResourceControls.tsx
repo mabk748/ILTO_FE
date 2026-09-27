@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -22,10 +24,16 @@ import {
   type HealthTarget,
 } from "../health-editor.ts";
 
-function targetLabel(target: HealthTarget): string {
+function targetLabel(target: HealthTarget, timeZone: string): string {
   if (!target.record) return target.kind;
   if (target.kind === "metric")
-    return new Date(target.record.date).toLocaleString();
+    return formatInstant(target.record.date, timeZone, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   return target.record.name;
 }
 
@@ -38,10 +46,11 @@ export default function HealthResourceControls({
   plans?: TrainingPlan[];
   autoOpen?: boolean;
 }) {
+  const timeZone = useTimeZone();
   const [mode, setMode] = useState<"edit" | "delete" | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const openedAutomatically = useRef(false);
-  const label = targetLabel(target);
+  const label = targetLabel(target, timeZone);
   useEffect(() => {
     if (autoOpen && !openedAutomatically.current) {
       openedAutomatically.current = true;
@@ -114,7 +123,10 @@ function Editor({
 }) {
   const id = useId();
   const queryClient = useQueryClient();
-  const [values, setValues] = useState<HealthDraft>(() => initialDraft(target));
+  const timeZone = useTimeZone();
+  const [values, setValues] = useState<HealthDraft>(() =>
+    initialDraft(target, timeZone),
+  );
   const mutation = useMutation({
     mutationFn: async () =>
       mode === "delete"
@@ -123,6 +135,7 @@ function Editor({
             target,
             values,
             plans.map((plan) => plan.id),
+            timeZone,
           ),
     retry: false,
   });

@@ -6,6 +6,11 @@ import type {
   Priority,
   WorkDeadline,
 } from "@/lib/api/types.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export const deadlinePriorities = [
   "low",
@@ -26,23 +31,21 @@ export type WorkTarget =
   | { kind: "certification"; record?: Certification };
 export type WorkDraft = Record<string, string>;
 
-export function toLocalDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function toLocalDateTimeValue(
+  value: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(value, timeZone);
 }
 
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || !Number.isFinite(date.getTime())) {
-    throw new Error(`${label} must be a valid date and time.`);
-  }
-  return date.toISOString();
-}
-
-function nullableUtcIso(value: string, label: string): string | null {
-  return value.trim() === "" ? null : toUtcIso(value, label);
+function nullableUtcIso(
+  value: string,
+  label: string,
+  timeZone: string,
+): string | null {
+  return value.trim() === ""
+    ? null
+    : zonedDateTimeToUtc(value, timeZone, label);
 }
 
 function text(value: string, label: string, maxLength: number): string {
@@ -84,14 +87,17 @@ function choice<T extends string>(
   return value as T;
 }
 
-export function initialDraft(target: WorkTarget): WorkDraft {
+export function initialDraft(
+  target: WorkTarget,
+  timeZone = detectedTimeZone(),
+): WorkDraft {
   if (target.kind === "deadline") {
     return {
       title: target.record?.title ?? "",
       project_or_context: target.record?.project_or_context ?? "",
       due_date: target.record
-        ? toLocalDateTimeValue(target.record.due_date)
-        : toLocalDateTimeValue(new Date().toISOString()),
+        ? toLocalDateTimeValue(target.record.due_date, timeZone)
+        : toLocalDateTimeValue(new Date().toISOString(), timeZone),
       priority: target.record?.priority ?? "medium",
       status: target.record?.status === "completed" ? "completed" : "pending",
       notes: target.record?.notes ?? "",
@@ -102,10 +108,10 @@ export function initialDraft(target: WorkTarget): WorkDraft {
     provider: target.record?.provider ?? "",
     status: target.record?.status ?? "planned",
     exam_date: target.record?.exam_date
-      ? toLocalDateTimeValue(target.record.exam_date)
+      ? toLocalDateTimeValue(target.record.exam_date, timeZone)
       : "",
     expiry_date: target.record?.expiry_date
-      ? toLocalDateTimeValue(target.record.expiry_date)
+      ? toLocalDateTimeValue(target.record.expiry_date, timeZone)
       : "",
     study_hours_logged: target.record?.study_hours_logged.toString() ?? "0",
     study_hours_target: target.record?.study_hours_target.toString() ?? "0",
@@ -115,6 +121,7 @@ export function initialDraft(target: WorkTarget): WorkDraft {
 export function buildWorkInput(
   target: WorkTarget,
   values: WorkDraft,
+  timeZone = detectedTimeZone(),
 ): api.CreateDeadlineInput | api.CreateCertificationInput {
   if (target.kind === "deadline") {
     return {
@@ -124,7 +131,7 @@ export function buildWorkInput(
         "Project or context",
         300,
       ),
-      due_date: toUtcIso(values.due_date, "Due date"),
+      due_date: zonedDateTimeToUtc(values.due_date, timeZone, "Due date"),
       priority: choice(values.priority, deadlinePriorities, "priority"),
       status: choice(values.status, deadlineStatuses, "deadline status"),
       notes: optionalText(values.notes, "Notes", 4000),
@@ -138,8 +145,8 @@ export function buildWorkInput(
       certificationStatuses,
       "certification status",
     ),
-    exam_date: nullableUtcIso(values.exam_date, "Exam date"),
-    expiry_date: nullableUtcIso(values.expiry_date, "Expiry date"),
+    exam_date: nullableUtcIso(values.exam_date, "Exam date", timeZone),
+    expiry_date: nullableUtcIso(values.expiry_date, "Expiry date", timeZone),
     study_hours_logged: decimal(
       values.study_hours_logged,
       "Logged study hours",
@@ -178,8 +185,12 @@ export function changedFields<T extends object>(
   ) as Partial<T>;
 }
 
-export async function saveWorkResource(target: WorkTarget, values: WorkDraft) {
-  const input = buildWorkInput(target, values);
+export async function saveWorkResource(
+  target: WorkTarget,
+  values: WorkDraft,
+  timeZone = detectedTimeZone(),
+) {
+  const input = buildWorkInput(target, values, timeZone);
   if (target.kind === "deadline") {
     return target.record
       ? api.updateDeadline(

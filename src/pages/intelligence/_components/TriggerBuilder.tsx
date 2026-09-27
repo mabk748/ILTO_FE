@@ -7,6 +7,8 @@ import { getTriggerRules } from "@/lib/api/triggers.ts";
 import type { TriggerActionType, TriggerRule } from "@/lib/api/triggers.ts";
 import { formatDistanceToNow } from "date-fns";
 import TriggerRuleControls from "./TriggerRuleControls.tsx";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { FINANCIAL_VALUE_MASK } from "@/lib/finance.ts";
 
 const actionColors: Record<TriggerActionType, string> = {
   notify: "bg-primary/20 text-primary border-primary/30",
@@ -15,7 +17,7 @@ const actionColors: Record<TriggerActionType, string> = {
   pause_spend: "bg-destructive/20 text-destructive border-destructive/30",
 };
 
-function RuleCard({ rule }: { rule: TriggerRule }) {
+function RuleCard({ rule, masked }: { rule: TriggerRule; masked: boolean }) {
   return (
     <Card className={cn("transition-all", !rule.enabled && "opacity-50")}>
       <CardContent className="pt-4 pb-4">
@@ -53,8 +55,14 @@ function RuleCard({ rule }: { rule: TriggerRule }) {
                 {rule.condition.operator}
               </span>
               <span className="font-mono bg-muted px-1.5 py-0.5 rounded text-foreground">
-                {rule.condition.threshold}
-                {rule.condition.unit}
+                {masked && rule.condition.domain === "finances" ? (
+                  FINANCIAL_VALUE_MASK
+                ) : (
+                  <>
+                    {rule.condition.threshold}
+                    {rule.condition.unit}
+                  </>
+                )}
               </span>
               <span className="ml-1 text-[10px] font-semibold uppercase tracking-wide text-accent">
                 THEN
@@ -88,6 +96,7 @@ function RuleCard({ rule }: { rule: TriggerRule }) {
 }
 
 export default function TriggerBuilder() {
+  const { masked } = useFinancePreferences();
   const {
     data: rules = [],
     error,
@@ -126,7 +135,7 @@ export default function TriggerBuilder() {
       ) : (
         <div className="space-y-3">
           {rules.map((rule) => (
-            <RuleCard key={rule.id} rule={rule} />
+            <RuleCard key={rule.id} rule={rule} masked={masked} />
           ))}
         </div>
       )}

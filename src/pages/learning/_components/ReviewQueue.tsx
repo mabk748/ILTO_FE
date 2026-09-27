@@ -7,12 +7,15 @@ import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import { Eye, CheckCircle } from "lucide-react";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   cards: SpacedRepetitionCard[];
 }
 
 export default function ReviewQueue({ cards: initialCards }: Props) {
+  const timeZone = useTimeZone();
   const queryClient = useQueryClient();
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [reviewed, setReviewed] = useState<
@@ -125,7 +128,13 @@ export default function ReviewQueue({ cards: initialCards }: Props) {
                 {isDone && (
                   <div className="flex items-center gap-1.5 text-xs text-green-400">
                     <CheckCircle className="h-3 w-3" /> Reviewed. Next review:{" "}
-                    {new Date(schedule.next_review).toLocaleString()}
+                    {formatInstant(schedule.next_review, timeZone, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </div>
                 )}
               </CardContent>

@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
 import type { ILTOSettings } from "@/lib/settings.ts";
+import { detectedTimeZone } from "@/lib/time-zone.ts";
 
 export interface SettingsContextValue {
   settings: ILTOSettings;
@@ -15,4 +16,9 @@ export function useSettings(): SettingsContextValue {
     throw new Error("useSettings must be used within SettingsProvider");
   }
   return context;
+}
+
+/** Isolated module views may render outside the application provider in tests. */
+export function useTimeZone(): string {
+  return useContext(SettingsContext)?.settings.timeZone ?? detectedTimeZone();
 }

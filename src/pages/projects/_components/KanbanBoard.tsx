@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useProjectsData } from "../projects-data.ts";
 import { useProjectsMutation } from "../use-projects-mutation.ts";
 import { projectWriteError } from "../project-editor.ts";
@@ -23,7 +24,13 @@ const PRIORITY_CLASSES: Record<Priority, string> = {
   low: "bg-muted text-muted-foreground border-border",
 };
 
-function TaskCard({ task }: { task: Task }) {
+function TaskCard({
+  task,
+  projectName,
+}: {
+  task: Task;
+  projectName: string | undefined;
+}) {
   const mutation = useProjectsMutation((status: TaskStatus) =>
     updateTask(task.id, { status }),
   );
@@ -34,6 +41,12 @@ function TaskCard({ task }: { task: Task }) {
   return (
     <div className="bg-card border border-border rounded-md p-3 space-y-2 hover:border-primary/50 transition-colors">
       <p className="text-sm font-medium leading-tight">{task.title}</p>
+      <p
+        className="truncate text-xs text-muted-foreground"
+        title={projectName ?? "Project unavailable"}
+      >
+        {`Project: ${projectName ?? "Project unavailable"}`}
+      </p>
       <label className="block text-xs space-y-1">
         <span>Status</span>
         <select
@@ -98,6 +111,9 @@ function ColumnSkeleton() {
 export default function KanbanBoard() {
   const { data, error, isPending: loading, refetch } = useProjectsData();
   const tasks = data?.tasks ?? [];
+  const projects = data?.projects ?? [];
+  const [selectedProjectIds, setSelectedProjectIds] =
+    useState<Set<string> | null>(null);
 
   if (loading) {
     return (
@@ -113,34 +129,98 @@ export default function KanbanBoard() {
     return <LoadError error={error} onRetry={() => void refetch()} />;
   }
 
+  const projectsById = new Map(
+    projects.map((project) => [project.id, project.name]),
+  );
+  const visibleTasks =
+    selectedProjectIds === null
+      ? tasks
+      : tasks.filter((task) => selectedProjectIds.has(task.project_id));
+
+  function selectProject(projectId: string, checked: boolean) {
+    setSelectedProjectIds((currentSelection) => {
+      const nextSelection = new Set(
+        currentSelection ?? projects.map((project) => project.id),
+      );
+      if (checked) nextSelection.add(projectId);
+      else nextSelection.delete(projectId);
+
+      return projects.every((project) => nextSelection.has(project.id))
+        ? null
+        : nextSelection;
+    });
+  }
+
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
-      {COLUMNS.map((col) => {
-        const colTasks = tasks.filter((t) => t.status === col.status);
-        return (
-          <div
-            key={col.status}
-            className="min-w-[220px] max-w-[220px] space-y-2"
-          >
-            <div className="flex items-center gap-2 px-1">
-              <span className="text-sm font-semibold">{col.label}</span>
-              <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-mono leading-none">
-                {colTasks.length}
-              </span>
+    <div className="space-y-4">
+      <fieldset className="rounded-md border border-border bg-card p-3">
+        <legend className="px-1 text-sm font-semibold">
+          Filter tasks by project
+        </legend>
+        <div className="flex flex-wrap gap-x-5 gap-y-2">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={selectedProjectIds === null}
+              onChange={(event) =>
+                setSelectedProjectIds(event.target.checked ? null : new Set())
+              }
+            />
+            All projects
+          </label>
+          {projects.map((project) => (
+            <label
+              key={project.id}
+              className="flex cursor-pointer items-center gap-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={
+                  selectedProjectIds === null ||
+                  selectedProjectIds.has(project.id)
+                }
+                onChange={(event) =>
+                  selectProject(project.id, event.target.checked)
+                }
+              />
+              {project.name}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="flex gap-4 overflow-x-auto pb-4">
+        {COLUMNS.map((col) => {
+          const colTasks = visibleTasks.filter((t) => t.status === col.status);
+          return (
+            <div
+              key={col.status}
+              className="min-w-[220px] max-w-[220px] space-y-2"
+            >
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-sm font-semibold">{col.label}</span>
+                <span className="text-xs bg-muted text-muted-foreground rounded-full px-2 py-0.5 font-mono leading-none">
+                  {colTasks.length}
+                </span>
+              </div>
+              <div className="space-y-2 min-h-[80px] rounded-md bg-muted/30 p-2 border border-dashed border-border">
+                {colTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    projectName={projectsById.get(task.project_id)}
+                  />
+                ))}
+                {colTasks.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-6">
+                    Empty
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="space-y-2 min-h-[80px] rounded-md bg-muted/30 p-2 border border-dashed border-border">
-              {colTasks.map((t) => (
-                <TaskCard key={t.id} task={t} />
-              ))}
-              {colTasks.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-6">
-                  Empty
-                </p>
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }

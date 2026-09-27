@@ -33,11 +33,26 @@ describe("frontend settings", () => {
   it("round-trips normalized settings through local storage", () => {
     const settings = normalizeSettings({
       apiBaseUrl: "https://api.example.test/v1",
+      timeZone: "Africa/Casablanca",
       domainVisibility: { social: false },
     });
 
     saveSettings(settings);
 
     expect(loadSettings()).toEqual(settings);
+  });
+
+  it("preserves a valid IANA time zone", () => {
+    expect(normalizeSettings({ timeZone: "Africa/Casablanca" }).timeZone).toBe(
+      "Africa/Casablanca",
+    );
+  });
+
+  it("replaces an invalid time zone with a valid browser fallback", () => {
+    expect(
+      Intl.DateTimeFormat(undefined, {
+        timeZone: normalizeSettings({ timeZone: "bad-zone" }).timeZone,
+      }),
+    ).toBeInstanceOf(Intl.DateTimeFormat);
   });
 });

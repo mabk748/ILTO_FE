@@ -7,6 +7,11 @@ import type {
   Trip,
   TripStatus,
 } from "@/lib/api/types.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export const tripStatuses = [
   "planned",
@@ -42,23 +47,21 @@ export type LogisticsTarget =
 
 export type LogisticsDraft = Record<string, string | boolean>;
 
-export function toLocalDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function toLocalDateTimeValue(
+  value: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(value, timeZone);
 }
 
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || !Number.isFinite(date.getTime())) {
-    throw new Error(`${label} must be a valid date and time.`);
-  }
-  return date.toISOString();
-}
-
-function nullableUtcIso(value: string, label: string): string | null {
-  return value.trim() === "" ? null : toUtcIso(value, label);
+function nullableUtcIso(
+  value: string,
+  label: string,
+  timeZone: string,
+): string | null {
+  return value.trim() === ""
+    ? null
+    : zonedDateTimeToUtc(value, timeZone, label);
 }
 
 function requiredText(value: string, label: string): string {
@@ -118,18 +121,21 @@ function assertDateOrder(
   }
 }
 
-export function initialDraft(target: LogisticsTarget): LogisticsDraft {
-  const now = toLocalDateTimeValue(new Date().toISOString());
+export function initialDraft(
+  target: LogisticsTarget,
+  timeZone = detectedTimeZone(),
+): LogisticsDraft {
+  const now = toLocalDateTimeValue(new Date().toISOString(), timeZone);
   if (target.kind === "trip") {
     return {
       name: target.record?.name ?? "",
       destination: target.record?.destination ?? "",
       status: target.record?.status ?? "planned",
       departure_date: target.record
-        ? toLocalDateTimeValue(target.record.departure_date)
+        ? toLocalDateTimeValue(target.record.departure_date, timeZone)
         : now,
       return_date: target.record
-        ? toLocalDateTimeValue(target.record.return_date)
+        ? toLocalDateTimeValue(target.record.return_date, timeZone)
         : now,
       notes: target.record?.notes ?? "",
       tags: target.record?.tags.join(", ") ?? "",
@@ -141,10 +147,10 @@ export function initialDraft(target: LogisticsTarget): LogisticsDraft {
       type: target.record?.type ?? "passport",
       issuer: target.record?.issuer ?? "",
       issue_date: target.record?.issue_date
-        ? toLocalDateTimeValue(target.record.issue_date)
+        ? toLocalDateTimeValue(target.record.issue_date, timeZone)
         : "",
       expiry_date: target.record?.expiry_date
-        ? toLocalDateTimeValue(target.record.expiry_date)
+        ? toLocalDateTimeValue(target.record.expiry_date, timeZone)
         : "",
       renewal_lead_days: target.record?.renewal_lead_days.toString() ?? "0",
       notes: target.record?.notes ?? "",
@@ -153,9 +159,11 @@ export function initialDraft(target: LogisticsTarget): LogisticsDraft {
   return {
     title: target.record?.title ?? "",
     type: target.record?.type ?? "appointment",
-    date: target.record ? toLocalDateTimeValue(target.record.date) : now,
+    date: target.record
+      ? toLocalDateTimeValue(target.record.date, timeZone)
+      : now,
     end_date: target.record?.end_date
-      ? toLocalDateTimeValue(target.record.end_date)
+      ? toLocalDateTimeValue(target.record.end_date, timeZone)
       : "",
     linked_trip_id: target.record?.linked_trip_id ?? "",
     notes: target.record?.notes ?? "",
@@ -166,13 +174,22 @@ export function initialDraft(target: LogisticsTarget): LogisticsDraft {
 export function buildLogisticsInput(
   target: LogisticsTarget,
   values: LogisticsDraft,
+  timeZone = detectedTimeZone(),
 ):
   | api.CreateTripInput
   | api.CreateDocumentInput
   | api.CreateLogisticsEventInput {
   if (target.kind === "trip") {
-    const departure_date = toUtcIso(String(values.departure_date), "Departure");
-    const return_date = toUtcIso(String(values.return_date), "Return");
+    const departure_date = zonedDateTimeToUtc(
+      String(values.departure_date),
+      timeZone,
+      "Departure",
+    );
+    const return_date = zonedDateTimeToUtc(
+      String(values.return_date),
+      timeZone,
+      "Return",
+    );
     assertDateOrder(departure_date, return_date, "Departure", "return");
     return {
       name: requiredText(String(values.name), "Name"),
@@ -185,10 +202,15 @@ export function buildLogisticsInput(
     };
   }
   if (target.kind === "document") {
-    const issue_date = nullableUtcIso(String(values.issue_date), "Issue date");
+    const issue_date = nullableUtcIso(
+      String(values.issue_date),
+      "Issue date",
+      timeZone,
+    );
     const expiry_date = nullableUtcIso(
       String(values.expiry_date),
       "Expiry date",
+      timeZone,
     );
     assertDateOrder(issue_date, expiry_date, "Issue date", "expiry date");
     return {
@@ -207,8 +229,12 @@ export function buildLogisticsInput(
       notes: optionalText(String(values.notes)),
     };
   }
-  const date = toUtcIso(String(values.date), "Event date");
-  const end_date = nullableUtcIso(String(values.end_date), "End date");
+  const date = zonedDateTimeToUtc(String(values.date), timeZone, "Event date");
+  const end_date = nullableUtcIso(
+    String(values.end_date),
+    "End date",
+    timeZone,
+  );
   assertDateOrder(date, end_date, "Event date", "end date");
   return {
     title: requiredText(String(values.title), "Title"),
@@ -260,8 +286,9 @@ export function changedFields<T extends object>(
 export async function saveLogisticsResource(
   target: LogisticsTarget,
   values: LogisticsDraft,
+  timeZone = detectedTimeZone(),
 ) {
-  const input = buildLogisticsInput(target, values);
+  const input = buildLogisticsInput(target, values, timeZone);
   if (target.kind === "trip") {
     return target.record
       ? api.updateTrip(

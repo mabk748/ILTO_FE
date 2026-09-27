@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog.tsx";
 import { DOMAIN_METRICS } from "@/lib/api/triggers.ts";
 import type { DomainName } from "@/lib/api/types.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
 import {
   deleteTriggerRule,
   initialTriggerDraft,
@@ -30,6 +31,19 @@ const actionLabels: Record<(typeof triggerActionTypes)[number], string> = {
   pause_spend: "Record pause-spend action",
   flag: "Flag for review",
 };
+
+function metricsFor(domain: DomainName, currency: string) {
+  return (DOMAIN_METRICS[domain] ?? []).map((metric) =>
+    domain === "finances" &&
+    (metric.key === "budget_remaining" || metric.key === "net_worth")
+      ? {
+          ...metric,
+          label: `${metric.label} (${currency})`,
+          unit: currency,
+        }
+      : metric,
+  );
+}
 
 function targetLabel(target: TriggerTarget): string {
   return target.record?.name ?? "rule";
@@ -102,6 +116,7 @@ function Editor({
 }) {
   const id = useId();
   const queryClient = useQueryClient();
+  const { currency } = useFinancePreferences();
   const [values, setValues] = useState<TriggerDraft>(() =>
     initialTriggerDraft(target),
   );
@@ -115,9 +130,9 @@ function Editor({
   const change = (key: string, value: string | boolean) =>
     setValues((previous) => ({ ...previous, [key]: value }));
   const domain = String(values.domain) as DomainName;
-  const metrics = DOMAIN_METRICS[domain] ?? [];
+  const metrics = metricsFor(domain, currency);
   const changeDomain = (nextDomain: DomainName) => {
-    const metric = DOMAIN_METRICS[nextDomain]?.[0];
+    const metric = metricsFor(nextDomain, currency)[0];
     setValues((previous) => ({
       ...previous,
       domain: nextDomain,

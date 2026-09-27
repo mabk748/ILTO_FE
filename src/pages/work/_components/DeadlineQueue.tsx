@@ -4,10 +4,12 @@ import type { WorkDeadline, Priority } from "@/lib/api/types.ts";
 import { updateDeadline } from "@/lib/api/work.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
-import { differenceInDays, format } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils.ts";
 import { workWriteError } from "../work-editor.ts";
 import WorkResourceControls from "./WorkResourceControls.tsx";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   deadlines: WorkDeadline[];
@@ -86,6 +88,7 @@ function DeadlineCompletionControl({ deadline }: { deadline: WorkDeadline }) {
 }
 
 export default function DeadlineQueue({ deadlines }: Props) {
+  const timeZone = useTimeZone();
   // The API returns due-date order; this view intentionally promotes priority,
   // retaining due date as the deterministic secondary ordering.
   const sorted = [...deadlines].sort((a, b) => {
@@ -171,7 +174,12 @@ export default function DeadlineQueue({ deadlines }: Props) {
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <div className="text-right">
                     <p className="text-xs text-muted-foreground">
-                      {format(new Date(deadline.due_date), "MMM d")}
+                      {formatInstant(deadline.due_date, timeZone, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                     <p
                       className={cn(

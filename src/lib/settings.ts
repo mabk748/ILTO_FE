@@ -1,4 +1,5 @@
 import type { DomainName } from "./api/types.ts";
+import { detectedTimeZone, normalizeTimeZone } from "./time-zone.ts";
 
 export const SETTINGS_STORAGE_KEY = "ilto_settings";
 
@@ -18,6 +19,7 @@ export type DomainVisibility = Record<DomainName, boolean>;
 
 export interface ILTOSettings {
   apiBaseUrl: string;
+  timeZone: string;
   domainVisibility: DomainVisibility;
 }
 
@@ -35,6 +37,7 @@ export const DEFAULT_DOMAIN_VISIBILITY: DomainVisibility = {
 
 export const DEFAULT_SETTINGS: ILTOSettings = {
   apiBaseUrl: "",
+  timeZone: detectedTimeZone(),
   domainVisibility: DEFAULT_DOMAIN_VISIBILITY,
 };
 
@@ -50,6 +53,7 @@ export function normalizeSettings(value: unknown): ILTOSettings {
 
   return {
     apiBaseUrl: typeof parsed.apiBaseUrl === "string" ? parsed.apiBaseUrl : "",
+    timeZone: normalizeTimeZone(parsed.timeZone),
     domainVisibility: Object.fromEntries(
       DOMAIN_NAMES.map((domain) => [
         domain,

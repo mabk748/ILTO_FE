@@ -7,10 +7,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
-import { format, differenceInDays } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils.ts";
 import FinanceResourceControls from "./FinanceResourceControls.tsx";
 import { financeWriteError } from "../finance-editor.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { financeCurrency, formatMoney } from "@/lib/finance.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   bills: Bill[];
@@ -31,6 +35,8 @@ interface BillRowProps {
 }
 
 function BillRow({ bill, now, pending, onToggle }: BillRowProps) {
+  const { masked } = useFinancePreferences();
+  const timeZone = useTimeZone();
   const daysLeft = differenceInDays(new Date(bill.due_date), now);
   return (
     <div
@@ -62,7 +68,12 @@ function BillRow({ bill, now, pending, onToggle }: BillRowProps) {
               {bill.recurrence}
             </span>
             <span className="text-xs text-muted-foreground">
-              {format(new Date(bill.due_date), "MMM d")}
+              {formatInstant(bill.due_date, timeZone, {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
             {!bill.paid && daysLeft >= 0 && (
               <span
@@ -78,7 +89,9 @@ function BillRow({ bill, now, pending, onToggle }: BillRowProps) {
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0">
-        <span className="text-sm font-semibold">€{bill.amount}</span>
+        <span className="text-sm font-semibold">
+          {formatMoney(bill.amount, financeCurrency(bill.currency), masked)}
+        </span>
         <button
           disabled={pending}
           aria-label={bill.paid ? "Mark incomplete" : "Mark complete"}
@@ -130,6 +143,7 @@ function BillsSection({
 }
 
 export default function BillsView({ bills }: Props) {
+  const { selectedCurrencies, masked } = useFinancePreferences();
   const mutation = useApiMutation(
     (input: { id: string; value: boolean }) =>
       updateBill(input.id, { paid: input.value }),
@@ -137,38 +151,51 @@ export default function BillsView({ bills }: Props) {
   );
 
   const now = new Date();
-  const upcoming = bills.filter(
+  const visibleBills = bills.filter((bill) =>
+    selectedCurrencies.includes(financeCurrency(bill.currency)),
+  );
+  const upcoming = visibleBills.filter(
     (b) =>
       !b.paid &&
       differenceInDays(new Date(b.due_date), now) <= 7 &&
       differenceInDays(new Date(b.due_date), now) >= 0,
   );
-  const dueSoon = bills.filter(
+  const dueSoon = visibleBills.filter(
     (b) =>
       !b.paid &&
       differenceInDays(new Date(b.due_date), now) > 7 &&
       differenceInDays(new Date(b.due_date), now) <= 30,
   );
-  const paid = bills.filter((b) => b.paid);
+  const paid = visibleBills.filter((b) => b.paid);
 
-  const overdue = bills.filter(
+  const overdue = visibleBills.filter(
     (b) => !b.paid && differenceInDays(new Date(b.due_date), now) < 0,
   );
-  const later = bills.filter(
+  const later = visibleBills.filter(
     (b) => !b.paid && differenceInDays(new Date(b.due_date), now) > 30,
   );
-  const monthlyTotal = bills.reduce((a, b) => a + b.amount, 0);
   const toggleBill = (bill: Bill) =>
     mutation.mutate({ id: bill.id, value: !bill.paid });
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-4 pb-3">
-          <p className="text-xs text-muted-foreground">Total listed bills</p>
-          <p className="text-2xl font-bold">€{monthlyTotal.toFixed(0)}</p>
-        </CardContent>
-      </Card>
+      {selectedCurrencies.map((currency) => {
+        const listedTotal = visibleBills
+          .filter((bill) => financeCurrency(bill.currency) === currency)
+          .reduce((total, bill) => total + bill.amount, 0);
+        return (
+          <Card key={currency}>
+            <CardContent className="pb-3 pt-4">
+              <p className="text-xs text-muted-foreground">
+                Total listed bills ({currency})
+              </p>
+              <p className="text-2xl font-bold">
+                {formatMoney(listedTotal, currency, masked, 0)}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {mutation.error && (
         <p role="alert" className="text-sm text-destructive">
@@ -180,9 +207,15 @@ export default function BillsView({ bills }: Props) {
         <FinanceResourceControls target={{ kind: "bill" }} categories={[]} />
       </div>
 
-      {bills.length === 0 && (
-        <p className="text-sm text-muted-foreground">No bills listed yet.</p>
-      )}
+      {selectedCurrencies.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Select at least one finance currency to display bills.
+        </p>
+      ) : visibleBills.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No bills match the selected currencies.
+        </p>
+      ) : null}
 
       <BillsSection
         title="Overdue"

@@ -11,9 +11,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
 import type { BudgetCategory } from "@/lib/api/types.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { FINANCE_CURRENCIES, financeCurrency } from "@/lib/finance.ts";
 import {
   financeWriteError,
   initialDraft,
+  paymentTypes,
   recurrences,
   removeFinanceResource,
   saveFinanceResource,
@@ -35,6 +39,8 @@ export default function FinanceResourceControls({
   target: FinanceTarget;
   categories: BudgetCategory[];
 }) {
+  const { currency } = useFinancePreferences();
+  const timeZone = useTimeZone();
   const [mode, setMode] = useState<"edit" | "delete" | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const disabled =
@@ -83,6 +89,8 @@ export default function FinanceResourceControls({
             target={target}
             categories={categories}
             mode={mode}
+            defaultCurrency={currency}
+            timeZone={timeZone}
             onClose={() => setMode(null)}
             restoreFocus={() => trigger.current?.focus()}
           />
@@ -96,27 +104,49 @@ function Editor({
   target,
   categories,
   mode,
+  defaultCurrency,
+  timeZone,
   onClose,
   restoreFocus,
 }: {
   target: FinanceTarget;
   categories: BudgetCategory[];
   mode: "edit" | "delete";
+  defaultCurrency: BudgetCategory["currency"];
+  timeZone: string;
   onClose: () => void;
   restoreFocus: () => void;
 }) {
   const id = useId();
   const queryClient = useQueryClient();
-  const [values, setValues] = useState(() => initialDraft(target));
+  const [values, setValues] = useState(() =>
+    initialDraft(target, defaultCurrency, timeZone),
+  );
   const mutation = useMutation({
     mutationFn: async () =>
       mode === "delete"
         ? removeFinanceResource(target)
-        : saveFinanceResource(target, values, categories),
+        : saveFinanceResource(target, values, categories, timeZone),
     retry: false,
   });
   const change = (key: string, value: string) =>
-    setValues((previous) => ({ ...previous, [key]: value }));
+    setValues((previous) => {
+      if (target.kind === "transaction" && key === "currency") {
+        const selectedCategory = categories.find(
+          (category) => category.id === previous.category_id,
+        );
+        return {
+          ...previous,
+          currency: value,
+          category_id:
+            selectedCategory &&
+            financeCurrency(selectedCategory.currency) === value
+              ? previous.category_id
+              : "",
+        };
+      }
+      return { ...previous, [key]: value };
+    });
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     try {
@@ -191,7 +221,7 @@ function Editor({
         <DialogDescription>
           {mode === "delete"
             ? "The backend confirms deletion and preserves related records on conflict."
-            : "Changes are saved only after the backend confirms them. Monetary values use EUR."}
+            : "Changes are saved only after the backend confirms them. Currencies are stored explicitly and are never converted in the browser."}
         </DialogDescription>
       </DialogHeader>
       <form
@@ -204,11 +234,13 @@ function Editor({
             <>
               {field("name", "Name", "text", true, 200)}
               {field("monthly_limit", "Monthly limit", "number", true)}
+              {select("currency", "Currency", [...FINANCE_CURRENCIES])}
               {field("color", "Color", "text", true, 7)}
             </>
           )}
           {mode === "edit" && target.kind === "transaction" && (
             <>
+              {select("currency", "Currency", [...FINANCE_CURRENCIES])}
               <div className="space-y-1">
                 <Label htmlFor={`${id}-category_id`}>Budget category</Label>
                 <select
@@ -221,28 +253,35 @@ function Editor({
                   }
                 >
                   <option value="">Choose a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
+                  {categories
+                    .filter(
+                      (category) =>
+                        financeCurrency(category.currency) === values.currency,
+                    )
+                    .map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name} ({financeCurrency(category.currency)})
+                      </option>
+                    ))}
                 </select>
               </div>
               {select("type", "Type", transactionTypes)}
-              {field("amount", "Amount (EUR)", "number", true)}
-              {select("currency", "Currency", ["EUR"])}
+              {field("amount", "Amount", "number", true)}
+              {select("payment_type", "Payment type", paymentTypes)}
               {field("description", "Description", "text", false, 4000)}
               {field("date", "Date and time", "datetime-local", true)}
               {field("tags", "Tags (comma-separated)", "text", false, 500)}
               <p className="text-xs text-muted-foreground">
-                Date and time are converted to UTC when saved.
+                Date and time use {timeZone} and are converted to UTC when
+                saved. The category list follows the selected currency.
               </p>
             </>
           )}
           {mode === "edit" && target.kind === "bill" && (
             <>
               {field("name", "Name", "text", true, 200)}
-              {field("amount", "Amount (EUR)", "number", true)}
+              {field("amount", "Amount", "number", true)}
+              {select("currency", "Currency", [...FINANCE_CURRENCIES])}
               {field("due_date", "Due date and time", "datetime-local", true)}
               {select("recurrence", "Recurrence", recurrences)}
               {field("category", "Category", "text", true, 200)}

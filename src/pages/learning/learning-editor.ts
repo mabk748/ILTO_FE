@@ -7,6 +7,11 @@ import type {
   SkillNode,
   Status,
 } from "@/lib/api/types.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export const roadmapStatuses = [
   "active",
@@ -29,27 +34,22 @@ export type LearningTarget =
 
 export type LearningDraft = Record<string, string>;
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
 /** datetime-local is for display only; requests always send a UTC instant. */
-export function toLocalDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function toLocalDateTimeValue(
+  value: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(value, timeZone);
 }
 
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || !Number.isFinite(date.getTime())) {
-    throw new Error(`${label} must be a valid date and time.`);
-  }
-  return date.toISOString();
-}
-
-function nullableUtcIso(value: string, label: string): string | null {
-  return value.trim() === "" ? null : toUtcIso(value, label);
+function nullableUtcIso(
+  value: string,
+  label: string,
+  timeZone: string,
+): string | null {
+  return value.trim() === ""
+    ? null
+    : zonedDateTimeToUtc(value, timeZone, label);
 }
 
 function text(value: string, label: string, maxLength: number): string {
@@ -131,7 +131,10 @@ export function resources(value: string): string[] {
   return result;
 }
 
-export function initialDraft(target: LearningTarget): LearningDraft {
+export function initialDraft(
+  target: LearningTarget,
+  timeZone = detectedTimeZone(),
+): LearningDraft {
   if (target.kind === "roadmap") {
     return {
       name: target.record?.name ?? "",
@@ -159,10 +162,10 @@ export function initialDraft(target: LearningTarget): LearningDraft {
     pages_read: target.record?.pages_read.toString() ?? "0",
     words_per_minute: target.record?.words_per_minute.toString() ?? "0",
     started_at: target.record
-      ? toLocalDateTimeValue(target.record.started_at)
-      : toLocalDateTimeValue(new Date().toISOString()),
+      ? toLocalDateTimeValue(target.record.started_at, timeZone)
+      : toLocalDateTimeValue(new Date().toISOString(), timeZone),
     completed_at: target.record?.completed_at
-      ? toLocalDateTimeValue(target.record.completed_at)
+      ? toLocalDateTimeValue(target.record.completed_at, timeZone)
       : "",
     tags: target.record?.tags.join(", ") ?? "",
   };
@@ -172,6 +175,7 @@ export function buildLearningInput(
   target: LearningTarget,
   values: LearningDraft,
   roadmaps: readonly LearningRoadmap[] = [],
+  timeZone = detectedTimeZone(),
 ): api.CreateRoadmapInput | api.CreateSkillInput | api.CreateReadingEntryInput {
   if (target.kind === "roadmap") {
     return {
@@ -205,8 +209,8 @@ export function buildLearningInput(
     pages_total: wholeNumber(values.pages_total, "Total pages"),
     pages_read: wholeNumber(values.pages_read, "Pages read"),
     words_per_minute: wholeNumber(values.words_per_minute, "Words per minute"),
-    started_at: toUtcIso(values.started_at, "Started at"),
-    completed_at: nullableUtcIso(values.completed_at, "Completed at"),
+    started_at: zonedDateTimeToUtc(values.started_at, timeZone, "Started at"),
+    completed_at: nullableUtcIso(values.completed_at, "Completed at", timeZone),
     tags: tags(values.tags),
   };
 }
@@ -244,8 +248,9 @@ export async function saveLearningResource(
   target: LearningTarget,
   values: LearningDraft,
   roadmaps: readonly LearningRoadmap[] = [],
+  timeZone = detectedTimeZone(),
 ) {
-  const input = buildLearningInput(target, values, roadmaps);
+  const input = buildLearningInput(target, values, roadmaps, timeZone);
   if (target.kind === "roadmap") {
     const roadmap = input as api.CreateRoadmapInput;
     return target.record

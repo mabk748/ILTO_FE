@@ -85,14 +85,14 @@ export const DOMAIN_METRICS: Record<DomainName, MetricDef[]> = {
     },
     {
       key: "budget_remaining",
-      label: "Budget remaining (€)",
-      unit: "€",
+      label: "Budget remaining",
+      unit: "EUR",
       defaultThreshold: 100,
     },
     {
       key: "net_worth",
-      label: "Net worth (€)",
-      unit: "€",
+      label: "Net worth",
+      unit: "EUR",
       defaultThreshold: 10000,
     },
   ],

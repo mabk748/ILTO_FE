@@ -166,6 +166,15 @@ See [Projects integration](projects-integration.md) for implementation and test 
 | PATCH  | `/finances/bills/:id`             | `updateBill`           | `Bill`               |
 | DELETE | `/finances/bills/:id`             | `deleteBill`           | `204 (no body)`      |
 
+The frontend's pending Finance contract adds explicit `EUR`, `MAD`, or `USD`
+currency fields without browser conversion and a required transaction
+`payment_type`. The deployed backend remains EUR-only until the coordinated
+migration is released; see
+[the backend handoff](finance-multi-currency-backend-plan.md) before deploying
+this frontend revision. The same handoff proposes user-scoped GET/PATCH
+`/preferences` for synchronizing the IANA time zone; the current frontend stores
+that setting locally until the endpoint exists.
+
 ### learning
 
 | Method | Path                             | Frontend function    | Response                 |

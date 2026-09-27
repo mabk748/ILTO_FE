@@ -46,6 +46,7 @@ describe("Finance backend adapter", () => {
     await createBudgetCategory({
       name: "Housing",
       monthly_limit: 1000,
+      currency: "MAD",
       color: "#123456",
     });
     await expect(
@@ -54,6 +55,7 @@ describe("Finance backend adapter", () => {
         type: "expense",
         amount: 12.5,
         currency: "EUR",
+        payment_type: "card",
         description: "Rent",
         date: "2026-09-15T10:00:00.000Z",
         tags: ["home"],
@@ -64,6 +66,7 @@ describe("Finance backend adapter", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
       name: "Housing",
       monthly_limit: 1000,
+      currency: "MAD",
       color: "#123456",
     });
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
@@ -71,6 +74,7 @@ describe("Finance backend adapter", () => {
       type: "expense",
       amount: 12.5,
       currency: "EUR",
+      payment_type: "card",
       description: "Rent",
       date: "2026-09-15T10:00:00.000Z",
       tags: ["home"],

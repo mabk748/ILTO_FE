@@ -20,16 +20,19 @@ import {
 } from "recharts";
 import HealthResourceControls from "./HealthResourceControls.tsx";
 import { buildMetricChartData } from "./metrics-chart-data.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   metrics: HealthMetric[];
 }
 
 export default function MetricsCharts({ metrics }: Props) {
+  const timeZone = useTimeZone();
   const orderedMetrics = [...metrics].sort(
     (left, right) => Date.parse(left.date) - Date.parse(right.date),
   );
-  const data = buildMetricChartData(metrics);
+  const data = buildMetricChartData(metrics, timeZone);
 
   // Today's snapshot
   const latest = orderedMetrics[orderedMetrics.length - 1];
@@ -312,7 +315,13 @@ export default function MetricsCharts({ metrics }: Props) {
               >
                 <div>
                   <p className="text-sm font-medium">
-                    {new Date(metric.date).toLocaleString()}
+                    {formatInstant(metric.date, timeZone, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {[

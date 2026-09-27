@@ -7,6 +7,11 @@ import type {
   WorkoutSession,
   WorkoutType,
 } from "@/lib/api/types.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export const planStatuses = [
   "active",
@@ -29,19 +34,11 @@ export type HealthTarget =
 
 export type HealthDraft = Record<string, string>;
 
-export function toLocalDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || !Number.isFinite(date.getTime())) {
-    throw new Error(`${label} must be a valid date and time.`);
-  }
-  return date.toISOString();
+export function toLocalDateTimeValue(
+  value: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(value, timeZone);
 }
 
 function text(value: string, label: string, maxLength: number): string {
@@ -128,7 +125,10 @@ function choice<T extends string>(
   return value as T;
 }
 
-export function initialDraft(target: HealthTarget): HealthDraft {
+export function initialDraft(
+  target: HealthTarget,
+  timeZone = detectedTimeZone(),
+): HealthDraft {
   if (target.kind === "plan") {
     return {
       name: target.record?.name ?? "",
@@ -146,16 +146,16 @@ export function initialDraft(target: HealthTarget): HealthDraft {
       duration_minutes: target.record?.duration_minutes.toString() ?? "0",
       rpe: target.record?.rpe.toString() ?? "1",
       completed_at: target.record
-        ? toLocalDateTimeValue(target.record.completed_at)
-        : toLocalDateTimeValue(new Date().toISOString()),
+        ? toLocalDateTimeValue(target.record.completed_at, timeZone)
+        : toLocalDateTimeValue(new Date().toISOString(), timeZone),
       notes: target.record?.notes ?? "",
     };
   }
   const metric = target.record;
   return {
     date: metric
-      ? toLocalDateTimeValue(metric.date)
-      : toLocalDateTimeValue(new Date().toISOString()),
+      ? toLocalDateTimeValue(metric.date, timeZone)
+      : toLocalDateTimeValue(new Date().toISOString(), timeZone),
     weight_kg: metric?.weight_kg?.toString() ?? "",
     sleep_hours: metric?.sleep_hours?.toString() ?? "",
     resting_hr: metric?.resting_hr?.toString() ?? "",
@@ -169,6 +169,7 @@ export function buildHealthInput(
   target: HealthTarget,
   values: HealthDraft,
   planIds: string[],
+  timeZone = detectedTimeZone(),
 ):
   | api.CreateTrainingPlanInput
   | api.CreateWorkoutSessionInput
@@ -202,13 +203,17 @@ export function buildHealthInput(
       name: text(values.name, "Name", 200),
       duration_minutes: integer(values.duration_minutes, "Duration", 0, 1440),
       rpe: integer(values.rpe, "RPE", 1, 10),
-      completed_at: toUtcIso(values.completed_at, "Completed date"),
+      completed_at: zonedDateTimeToUtc(
+        values.completed_at,
+        timeZone,
+        "Completed date",
+      ),
       notes: optionalText(values.notes, "Notes", 4000),
     };
   }
 
   const input: api.CreateHealthMetricInput = {
-    date: toUtcIso(values.date, "Metric date"),
+    date: zonedDateTimeToUtc(values.date, timeZone, "Metric date"),
     weight_kg: nullableDecimal(values.weight_kg, "Weight", 0, 1000, false),
     sleep_hours: nullableDecimal(values.sleep_hours, "Sleep", 0, 24),
     resting_hr: nullableInteger(
@@ -261,8 +266,9 @@ export async function saveHealthResource(
   target: HealthTarget,
   values: HealthDraft,
   planIds: string[],
+  timeZone = detectedTimeZone(),
 ) {
-  const input = buildHealthInput(target, values, planIds);
+  const input = buildHealthInput(target, values, planIds, timeZone);
   if (target.kind === "plan") {
     return target.record
       ? api.updateTrainingPlan(

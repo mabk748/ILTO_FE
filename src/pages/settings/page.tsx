@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings, Server, Eye, Save, RotateCcw } from "lucide-react";
+import { Settings, Server, Eye, Save, RotateCcw, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -17,6 +17,7 @@ import type { DomainName } from "@/lib/api/types.ts";
 import { useSettings } from "@/components/providers/settings-context.ts";
 import { DEFAULT_SETTINGS, normalizeSettings } from "@/lib/settings.ts";
 import { normalizeApiBaseUrl } from "@/lib/api/config.ts";
+import { isValidTimeZone } from "@/lib/time-zone.ts";
 
 const DOMAIN_META: { key: DomainName; label: string; description: string }[] = [
   {
@@ -76,6 +77,7 @@ export default function SettingsPage() {
 
   const handleSave = () => {
     let apiBaseUrl = settings.apiBaseUrl.trim();
+    const timeZone = settings.timeZone.trim();
     try {
       if (apiBaseUrl) apiBaseUrl = normalizeApiBaseUrl(apiBaseUrl);
     } catch (error) {
@@ -84,9 +86,15 @@ export default function SettingsPage() {
       );
       return;
     }
+    if (!isValidTimeZone(timeZone)) {
+      toast.error(
+        "Enter a valid IANA time zone such as Africa/Casablanca or Europe/Paris.",
+      );
+      return;
+    }
 
     try {
-      const nextSettings = { ...settings, apiBaseUrl };
+      const nextSettings = { ...settings, apiBaseUrl, timeZone };
       updateSettings(nextSettings);
       setSettings(nextSettings);
       toast.success("Settings saved");
@@ -209,6 +217,52 @@ export default function SettingsPage() {
               backend.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <Clock3 className="h-4 w-4 text-primary" />
+            Time zone
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Controls the dashboard clock, displayed instants, and how local
+            date-time form values are converted to UTC.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          <Label htmlFor="timeZone" className="text-xs font-medium">
+            IANA time zone
+          </Label>
+          <Input
+            id="timeZone"
+            type="text"
+            list="common-time-zones"
+            placeholder="Africa/Casablanca"
+            value={settings.timeZone}
+            onChange={(event) =>
+              setSettings((previous) => ({
+                ...previous,
+                timeZone: event.target.value,
+              }))
+            }
+            className="font-mono text-sm"
+          />
+          <datalist id="common-time-zones">
+            <option value="UTC" />
+            <option value="Africa/Casablanca" />
+            <option value="Europe/London" />
+            <option value="Europe/Paris" />
+            <option value="America/New_York" />
+            <option value="America/Los_Angeles" />
+            <option value="Asia/Dubai" />
+            <option value="Asia/Tokyo" />
+          </datalist>
+          <p className="text-[11px] text-muted-foreground">
+            Use an IANA identifier. Saved timestamps remain UTC instants; only
+            entry and presentation use this zone.
+          </p>
         </CardContent>
       </Card>
 

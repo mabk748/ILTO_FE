@@ -9,8 +9,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { SystemMetric, InfraNode } from "@/lib/api/types.ts";
-import { format } from "date-fns";
 import { buildChartData, nodeColor } from "./metrics-chart-data.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   nodes: InfraNode[];
@@ -25,6 +26,7 @@ export default function MetricsChart({
   metric,
   title,
 }: Props) {
+  const timeZone = useTimeZone();
   const data = buildChartData(nodes, metricsMap, metric);
 
   return (
@@ -72,7 +74,11 @@ export default function MetricsChart({
               tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
               interval={3}
               tickFormatter={(value: number) =>
-                format(new Date(value), "HH:mm")
+                formatInstant(value, timeZone, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hourCycle: "h23",
+                })
               }
             />
             <YAxis
@@ -94,7 +100,13 @@ export default function MetricsChart({
                 return [""] as [string];
               }}
               labelFormatter={(value) =>
-                format(new Date(Number(value)), "PP p")
+                formatInstant(Number(value), timeZone, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
               }
             />
             <Legend

@@ -5,9 +5,11 @@ import type {
   ContactStatus,
 } from "@/lib/api/types.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils.ts";
 import ContactControls from "./ContactControls.tsx";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   contacts: Contact[];
@@ -45,6 +47,7 @@ function initials(name: string): string {
 }
 
 export default function ContactList({ contacts }: Props) {
+  const timeZone = useTimeZone();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<RelationshipType | "all">("all");
 
@@ -157,7 +160,13 @@ export default function ContactList({ contacts }: Props) {
                     )}
                     {c.next_followup && (
                       <span>
-                        Next: {format(new Date(c.next_followup), "MMM d")}
+                        Next:{" "}
+                        {formatInstant(c.next_followup, timeZone, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     )}
                   </div>

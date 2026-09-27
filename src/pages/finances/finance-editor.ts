@@ -3,9 +3,17 @@ import { ApiError } from "@/lib/api/errors.ts";
 import type {
   Bill,
   BudgetCategory,
+  FinanceCurrency,
+  PaymentType,
   Transaction,
   TransactionType,
 } from "@/lib/api/types.ts";
+import { FINANCE_CURRENCIES, financeCurrency } from "@/lib/finance.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export type FinanceTarget =
   | { kind: "category"; record?: BudgetCategory }
@@ -20,6 +28,14 @@ export const transactionTypes: TransactionType[] = [
   "transfer",
   "investment",
 ];
+export const paymentTypes: PaymentType[] = [
+  "cash",
+  "bank_transfer",
+  "card",
+  "mobile_payment",
+  "direct_debit",
+  "other",
+];
 export const recurrences: Bill["recurrence"][] = [
   "monthly",
   "quarterly",
@@ -27,23 +43,12 @@ export const recurrences: Bill["recurrence"][] = [
   "one_time",
 ];
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
 /** datetime-local is display-only; writes are always converted back to UTC. */
-export function toLocalDateTimeValue(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || Number.isNaN(date.getTime())) {
-    throw new Error(`${label} must be a valid timezone-aware date and time.`);
-  }
-  return date.toISOString();
+export function toLocalDateTimeValue(
+  iso: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(iso, timeZone);
 }
 
 function text(value: string, label: string, maxLength: number): string {
@@ -102,11 +107,16 @@ function tags(value: string): string[] {
   return result;
 }
 
-export function initialDraft(target: FinanceTarget): FinanceDraft {
+export function initialDraft(
+  target: FinanceTarget,
+  defaultCurrency: FinanceCurrency = "EUR",
+  timeZone = detectedTimeZone(),
+): FinanceDraft {
   if (target.kind === "category") {
     return {
       name: target.record?.name ?? "",
       monthly_limit: target.record?.monthly_limit.toString() ?? "0",
+      currency: financeCurrency(target.record?.currency ?? defaultCurrency),
       color: target.record?.color ?? "#6366f1",
     };
   }
@@ -115,20 +125,24 @@ export function initialDraft(target: FinanceTarget): FinanceDraft {
       category_id: target.record?.category_id ?? "",
       type: target.record?.type ?? "expense",
       amount: target.record?.amount.toString() ?? "",
-      currency: "EUR",
+      currency: financeCurrency(target.record?.currency ?? defaultCurrency),
+      payment_type: target.record
+        ? (target.record.payment_type ?? "other")
+        : "card",
       description: target.record?.description ?? "",
       date: target.record
-        ? toLocalDateTimeValue(target.record.date)
-        : toLocalDateTimeValue(new Date().toISOString()),
+        ? toLocalDateTimeValue(target.record.date, timeZone)
+        : toLocalDateTimeValue(new Date().toISOString(), timeZone),
       tags: target.record?.tags.join(", ") ?? "",
     };
   }
   return {
     name: target.record?.name ?? "",
     amount: target.record?.amount.toString() ?? "",
+    currency: financeCurrency(target.record?.currency ?? defaultCurrency),
     due_date: target.record
-      ? toLocalDateTimeValue(target.record.due_date)
-      : toLocalDateTimeValue(new Date().toISOString()),
+      ? toLocalDateTimeValue(target.record.due_date, timeZone)
+      : toLocalDateTimeValue(new Date().toISOString(), timeZone),
     recurrence: target.record?.recurrence ?? "one_time",
     paid: String(target.record?.paid ?? false),
     category: target.record?.category ?? "",
@@ -139,6 +153,7 @@ export function buildFinanceInput(
   target: FinanceTarget,
   values: FinanceDraft,
   categories: BudgetCategory[],
+  timeZone = detectedTimeZone(),
 ):
   | api.CreateBudgetCategoryInput
   | api.CreateTransactionInput
@@ -151,28 +166,37 @@ export function buildFinanceInput(
     return {
       name: text(values.name, "Name", 200),
       monthly_limit: decimal(values.monthly_limit, "Monthly limit", true),
+      currency: choice(values.currency, FINANCE_CURRENCIES, "currency"),
       color: values.color,
     };
   }
   if (target.kind === "transaction") {
-    if (!categories.some((category) => category.id === values.category_id))
-      throw new Error("Choose an existing budget category.");
-    if (values.currency !== "EUR")
-      throw new Error("Transaction currency must be EUR.");
+    const category = categories.find(
+      (candidate) => candidate.id === values.category_id,
+    );
+    if (!category) throw new Error("Choose an existing budget category.");
+    const currency = choice(values.currency, FINANCE_CURRENCIES, "currency");
+    if (currency !== financeCurrency(category.currency)) {
+      throw new Error(
+        "Transaction currency must match its budget category currency.",
+      );
+    }
     return {
       category_id: values.category_id,
       type: choice(values.type, transactionTypes, "transaction type"),
       amount: decimal(values.amount, "Amount", false),
-      currency: "EUR",
+      currency,
+      payment_type: choice(values.payment_type, paymentTypes, "payment type"),
       description: optionalText(values.description, "Description", 4000),
-      date: toUtcIso(values.date, "Transaction date"),
+      date: zonedDateTimeToUtc(values.date, timeZone, "Transaction date"),
       tags: tags(values.tags),
     };
   }
   return {
     name: text(values.name, "Name", 200),
     amount: decimal(values.amount, "Amount", false),
-    due_date: toUtcIso(values.due_date, "Due date"),
+    currency: choice(values.currency, FINANCE_CURRENCIES, "currency"),
+    due_date: zonedDateTimeToUtc(values.due_date, timeZone, "Due date"),
     recurrence: choice(values.recurrence, recurrences, "recurrence"),
     paid: values.paid === "true",
     category: text(values.category, "Category", 200),
@@ -211,12 +235,14 @@ export async function saveFinanceResource(
   target: FinanceTarget,
   values: FinanceDraft,
   categories: BudgetCategory[],
+  timeZone = detectedTimeZone(),
 ) {
   if (target.kind === "category") {
     const input = buildFinanceInput(
       target,
       values,
       categories,
+      timeZone,
     ) as api.CreateBudgetCategoryInput;
     return target.record
       ? api.updateBudgetCategory(
@@ -230,6 +256,7 @@ export async function saveFinanceResource(
       target,
       values,
       categories,
+      timeZone,
     ) as api.CreateTransactionInput;
     return target.record
       ? api.updateTransaction(
@@ -242,6 +269,7 @@ export async function saveFinanceResource(
     target,
     values,
     categories,
+    timeZone,
   ) as api.CreateBillInput;
   return target.record
     ? api.updateBill(target.record.id, changedFields(input, target.record))

@@ -1,4 +1,5 @@
-import { format } from "date-fns";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 import type { DocumentRecord, DocumentType } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
 import { AlertTriangle, ShieldAlert, FileText } from "lucide-react";
@@ -40,6 +41,7 @@ interface Props {
 }
 
 export default function DocumentsView({ documents }: Props) {
+  const timeZone = useTimeZone();
   const expired = documents.filter((d) => d.status === "expired");
   const expiringSoon = documents.filter((d) => d.status === "expiring_soon");
 
@@ -125,12 +127,22 @@ export default function DocumentsView({ documents }: Props) {
             <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
               {doc.expiry_date && (
                 <span>
-                  Expires {format(new Date(doc.expiry_date), "MMM d, yyyy")}
+                  Expires{" "}
+                  {formatInstant(doc.expiry_date, timeZone, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </span>
               )}
               {doc.issue_date && (
                 <span>
-                  Issued {format(new Date(doc.issue_date), "MMM d, yyyy")}
+                  Issued{" "}
+                  {formatInstant(doc.issue_date, timeZone, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </span>
               )}
               <span className="text-[10px] italic">

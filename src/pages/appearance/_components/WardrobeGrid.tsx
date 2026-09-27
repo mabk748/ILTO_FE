@@ -7,6 +7,8 @@ import type {
 } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
 import AppearanceResourceControls from "./AppearanceResourceControls.tsx";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { FINANCIAL_VALUE_MASK } from "@/lib/finance.ts";
 
 const CATEGORIES: { id: ClothingCategory | "all"; label: string }[] = [
   { id: "all", label: "All" },
@@ -56,6 +58,7 @@ interface Props {
 }
 
 export default function WardrobeGrid({ items }: Props) {
+  const { masked } = useFinancePreferences();
   const [categoryFilter, setCategoryFilter] = useState<
     ClothingCategory | "all"
   >("all");
@@ -90,7 +93,10 @@ export default function WardrobeGrid({ items }: Props) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: "Total Items", value: items.length },
-          { label: "Wardrobe Value", value: `€${totalValue.toFixed(0)}` },
+          {
+            label: "Wardrobe Value",
+            value: masked ? FINANCIAL_VALUE_MASK : `€${totalValue.toFixed(0)}`,
+          },
           { label: "Avg Wears", value: avgWear },
           { label: "Most Worn", value: mostWorn?.name ?? "—" },
         ].map((stat) => (

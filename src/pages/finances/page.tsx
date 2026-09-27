@@ -12,19 +12,23 @@ import { TrendingUp } from "lucide-react";
 import BudgetView from "./_components/BudgetView.tsx";
 import PortfolioView from "./_components/PortfolioView.tsx";
 import BillsView from "./_components/BillsView.tsx";
+import TransactionsView from "./_components/TransactionsView.tsx";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
 
-type Tab = "budget" | "portfolio" | "bills";
+type Tab = "transactions" | "budget" | "portfolio" | "bills";
 
 const TABS: { id: Tab; label: string }[] = [
+  { id: "transactions", label: "Transactions" },
   { id: "budget", label: "Budget" },
   { id: "portfolio", label: "Portfolio" },
   { id: "bills", label: "Bills" },
 ];
 
 export default function FinancesPage() {
-  const [tab, setTab] = useState<Tab>("budget");
+  const [tab, setTab] = useState<Tab>("transactions");
+  const { selectedCurrencies } = useFinancePreferences();
   const {
     data,
     error,
@@ -49,12 +53,20 @@ export default function FinancesPage() {
     <div className="p-4 md:p-6 space-y-5">
       <div className="flex items-center gap-3">
         <TrendingUp className="h-6 w-6 text-primary shrink-0" />
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          Finances
-        </h1>
+        <div>
+          <h1
+            className="text-2xl font-bold"
+            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+          >
+            Finances
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {selectedCurrencies.length === 0
+              ? "No currencies selected."
+              : `Showing ${selectedCurrencies.join(", ")}.`}{" "}
+            Stored currencies are never converted or added together.
+          </p>
+        </div>
       </div>
 
       <div className="flex gap-1 border-b border-border">
@@ -84,11 +96,14 @@ export default function FinancesPage() {
         </div>
       ) : (
         <>
-          {tab === "budget" && (
-            <BudgetView
+          {tab === "transactions" && (
+            <TransactionsView
               categories={data?.categories ?? []}
               transactions={data?.transactions ?? []}
             />
+          )}
+          {tab === "budget" && (
+            <BudgetView categories={data?.categories ?? []} />
           )}
           {tab === "portfolio" && (
             <PortfolioView

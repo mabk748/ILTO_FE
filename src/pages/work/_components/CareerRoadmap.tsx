@@ -9,10 +9,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card.tsx";
-import { format, differenceInDays } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { CheckCircle, Circle } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import WorkResourceControls from "./WorkResourceControls.tsx";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   milestones: CareerMilestone[];
@@ -35,6 +37,7 @@ const CERT_STATUS_STYLES: Record<CertStatus, string> = {
 };
 
 export default function CareerRoadmap({ milestones, certs }: Props) {
+  const timeZone = useTimeZone();
   const now = new Date();
 
   return (
@@ -98,8 +101,8 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
                     )}
                   >
                     {done
-                      ? `Completed ${format(new Date(m.completed_at!), "MMM d, yyyy")}`
-                      : `Target: ${format(new Date(m.target_date), "MMM d, yyyy")} · ${daysLeft > 0 ? `${daysLeft}d left` : `${Math.abs(daysLeft)}d overdue`}`}
+                      ? `Completed ${formatInstant(m.completed_at!, timeZone, { year: "numeric", month: "short", day: "numeric" })}`
+                      : `Target: ${formatInstant(m.target_date, timeZone, { year: "numeric", month: "short", day: "numeric" })} · ${daysLeft > 0 ? `${daysLeft}d left` : `${Math.abs(daysLeft)}d overdue`}`}
                   </p>
                 </div>
               </div>
@@ -156,12 +159,20 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
                 <p className="text-xs text-muted-foreground">
                   Exam:{" "}
                   {c.exam_date
-                    ? format(new Date(c.exam_date), "MMM d, yyyy")
+                    ? formatInstant(c.exam_date, timeZone, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
                     : "Not scheduled"}
                   {" · "}
                   Expiry:{" "}
                   {c.expiry_date
-                    ? format(new Date(c.expiry_date), "MMM d, yyyy")
+                    ? formatInstant(c.expiry_date, timeZone, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
                     : "Not scheduled"}
                 </p>
                 <div className="space-y-1">

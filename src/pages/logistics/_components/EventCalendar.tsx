@@ -1,8 +1,10 @@
-import { format, differenceInDays } from "date-fns";
+import { differenceInDays } from "date-fns";
 import type { LogisticsEvent, Trip, TripStatus } from "@/lib/api/types.ts";
 import { cn } from "@/lib/utils.ts";
 import { Plane, RefreshCw, CalendarCheck, Bell, MapPin } from "lucide-react";
 import LogisticsResourceControls from "./LogisticsResourceControls.tsx";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 const eventTypeIcon: Record<string, React.ElementType> = {
   trip: Plane,
@@ -51,6 +53,7 @@ interface Props {
 }
 
 export default function EventCalendar({ events, trips }: Props) {
+  const timeZone = useTimeZone();
   const buckets: Record<string, LogisticsEvent[]> = {};
   for (const e of [...events].sort(
     (left, right) => Date.parse(left.date) - Date.parse(right.date),
@@ -126,9 +129,20 @@ export default function EventCalendar({ events, trips }: Props) {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {format(new Date(evt.date), "EEE, MMM d")}
+                        {formatInstant(evt.date, timeZone, {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                         {evt.end_date &&
-                          ` – ${format(new Date(evt.end_date), "MMM d")}`}
+                          ` – ${formatInstant(evt.end_date, timeZone, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}`}
                         {evt.notes && ` · ${evt.notes}`}
                       </p>
                     </div>
@@ -185,8 +199,15 @@ export default function EventCalendar({ events, trips }: Props) {
                 </div>
                 <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span>
-                    {format(new Date(trip.departure_date), "MMM d")} –{" "}
-                    {format(new Date(trip.return_date), "MMM d")}
+                    {formatInstant(trip.departure_date, timeZone, {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    –{" "}
+                    {formatInstant(trip.return_date, timeZone, {
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </span>
                   {nights > 0 && (
                     <span>

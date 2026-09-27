@@ -31,6 +31,17 @@ import { getDeadlines, getCertifications } from "@/lib/api/work.ts";
 import { getFollowUps, getContacts } from "@/lib/api/social.ts";
 import { getSleepTrend, getCommitsTrend } from "@/lib/api/intelligence.ts";
 import { hasTrendObservations, toSparklinePoints } from "./sparkline-data.ts";
+import {
+  financesScore,
+  healthScore,
+  infraScore,
+  learningScore,
+  projectsScore,
+  socialScore,
+  systemScore,
+  workScore,
+  type DashboardScore,
+} from "./dashboard-scores.ts";
 import type {
   Project,
   Sprint,
@@ -57,6 +68,9 @@ import {
   ErrorStateTitle,
 } from "@/components/ui/error-state.tsx";
 import { useSettings } from "@/components/providers/settings-context.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { financeCurrency, formatMoney } from "@/lib/finance.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 // ─── Data shape ─────────────────────────────────────────────────────────────
 
@@ -107,63 +121,6 @@ const STATUS_LABEL: Record<ScoreStatus, string> = {
   "needs-attention": "Needs Attention",
   critical: "Critical",
 };
-
-// ─── Score computations ──────────────────────────────────────────────────────
-
-function projectsScore(tasks: Task[], sprints: Sprint[]): number {
-  const activeSprint = sprints.find((s) => s.status === "active");
-  const st = activeSprint
-    ? tasks.filter((t) => t.sprint_id === activeSprint.id)
-    : tasks;
-  if (st.length === 0) return 50;
-  return Math.round(
-    (st.filter((t) => t.status === "done").length / st.length) * 100,
-  );
-}
-
-function infraScore(nodes: InfraNode[]): number {
-  if (nodes.length === 0) return 0;
-  return Math.round(
-    (nodes.filter((n) => n.status === "online").length / nodes.length) * 100,
-  );
-}
-
-function healthScore(metrics: HealthMetric[]): number {
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  const sleepValues = metrics
-    .filter((metric) => Date.parse(metric.date) >= sevenDaysAgo)
-    .map((metric) => metric.sleep_hours)
-    .filter((hours): hours is number => hours !== null);
-  if (sleepValues.length === 0) return 0;
-  const avg =
-    sleepValues.reduce((sum, hours) => sum + hours, 0) / sleepValues.length;
-  return Math.min(100, Math.round((avg / 8) * 100));
-}
-
-function financesScore(cats: BudgetCategory[]): number {
-  const total = cats.reduce((a, c) => a + c.monthly_limit, 0);
-  const spent = cats.reduce((a, c) => a + c.spent_this_month, 0);
-  return total > 0
-    ? Math.max(0, Math.min(100, Math.round((1 - spent / total) * 100)))
-    : 50;
-}
-
-function learningScore(dueCards: SpacedRepetitionCard[]): number {
-  return Math.max(0, 100 - dueCards.length * 15);
-}
-
-function workScore(deadlines: WorkDeadline[]): number {
-  const overdue = deadlines.filter((d) => d.status === "overdue").length;
-  return Math.max(0, 100 - overdue * 25);
-}
-
-function socialScore(contacts: Contact[]): number {
-  if (contacts.length === 0) return 50;
-  return Math.round(
-    (contacts.filter((c) => c.status === "active").length / contacts.length) *
-      100,
-  );
-}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -224,13 +181,14 @@ interface DomainCardProps {
   label: string;
   icon: React.ElementType;
   path: string;
-  score: number;
+  score: DashboardScore;
   color: string;
   bg: string;
   metrics: Array<{ label: string; value: string }>;
   sparkline?: (number | null)[];
   sparklineColor?: string;
   emptySparklineLabel?: string;
+  privacyMasked?: boolean;
 }
 
 async function loadDashboardData({
@@ -316,7 +274,7 @@ function DashboardHeader({ clock, date }: { clock: string; date: string }) {
   );
 }
 
-function DomainHealthCard({
+export function DomainHealthCard({
   label,
   icon: Icon,
   path,
@@ -327,14 +285,15 @@ function DomainHealthCard({
   sparkline,
   sparklineColor,
   emptySparklineLabel,
+  privacyMasked = false,
 }: DomainCardProps) {
-  const status = scoreStatus(score);
+  const status = score === null || privacyMasked ? null : scoreStatus(score);
   return (
     <Link to={path} className="group cursor-pointer">
       <Card
         className={cn(
           "h-full transition-all duration-200 border",
-          STATUS_RING[status],
+          status ? STATUS_RING[status] : "hover:border-muted-foreground/30",
           "hover:bg-card/80",
         )}
       >
@@ -347,10 +306,16 @@ function DomainHealthCard({
             <span
               className={cn(
                 "text-[10px] font-bold px-2 py-0.5 rounded-full",
-                STATUS_BADGE[status],
+                status
+                  ? STATUS_BADGE[status]
+                  : "border border-border bg-muted text-muted-foreground",
               )}
             >
-              {STATUS_LABEL[status]}
+              {privacyMasked
+                ? "Hidden"
+                : status
+                  ? STATUS_LABEL[status]
+                  : "No data"}
             </span>
           </div>
           {/* Label + score */}
@@ -370,13 +335,17 @@ function DomainHealthCard({
                       ? "bg-emerald-500"
                       : status === "needs-attention"
                         ? "bg-amber-500"
-                        : "bg-red-500",
+                        : status === "critical"
+                          ? "bg-red-500"
+                          : "bg-transparent",
                   )}
-                  style={{ width: `${score}%` }}
+                  style={{
+                    width: score === null || privacyMasked ? "0%" : `${score}%`,
+                  }}
                 />
               </div>
               <span className="text-xs font-bold text-muted-foreground tabular-nums">
-                {score}%
+                {privacyMasked ? "••••" : score === null ? "—" : `${score}%`}
               </span>
             </div>
           </div>
@@ -450,6 +419,8 @@ function KPITile({
 export default function DashboardPage() {
   const [time, setTime] = useState(new Date());
   const { settings } = useSettings();
+  const { selectedCurrencies, masked: financesMasked } =
+    useFinancePreferences();
   const {
     data,
     error,
@@ -466,12 +437,12 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, []);
 
-  const clock = time.toLocaleTimeString([], {
+  const clock = formatInstant(time, settings.timeZone, {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
   });
-  const dateStr = time.toLocaleDateString([], {
+  const dateStr = formatInstant(time, settings.timeZone, {
     weekday: "long",
     month: "long",
     day: "numeric",
@@ -485,11 +456,29 @@ export default function DashboardPage() {
       : [];
   const doneTasks = sprintTasks.filter((t) => t.status === "done").length;
 
-  const totalSpent =
-    data?.budgetCategories.reduce((a, c) => a + c.spent_this_month, 0) ?? 0;
-  const totalLimit =
-    data?.budgetCategories.reduce((a, c) => a + c.monthly_limit, 0) ?? 0;
-  const budgetRemaining = totalLimit - totalSpent;
+  const budgetsByCurrency = selectedCurrencies.map((currency) => {
+    const categories =
+      data?.budgetCategories.filter(
+        (category) => financeCurrency(category.currency) === currency,
+      ) ?? [];
+    const spent = categories.reduce(
+      (total, category) => total + category.spent_this_month,
+      0,
+    );
+    const limit = categories.reduce(
+      (total, category) => total + category.monthly_limit,
+      0,
+    );
+    return { currency, spent, limit, remaining: limit - spent };
+  });
+  const financeSummary = (field: "spent" | "limit" | "remaining"): string =>
+    budgetsByCurrency.length === 0
+      ? "No currencies selected"
+      : budgetsByCurrency
+          .map(({ currency, ...amounts }) =>
+            formatMoney(amounts[field], currency, financesMasked, 0),
+          )
+          .join(" · ");
 
   const lastMetric = data?.healthMetrics.reduce<HealthMetric | undefined>(
     (latest, metric) =>
@@ -531,23 +520,25 @@ export default function DashboardPage() {
 
   // ── Health scores ───────────────────────────────────────────────────────────
   const scores = data
-    ? {
-        projects: projectsScore(data.tasks, data.sprints),
-        infra: infraScore(data.nodes),
-        health: healthScore(data.healthMetrics),
-        finances: financesScore(data.budgetCategories),
-        learning: learningScore(data.dueCards),
-        work: workScore(data.deadlines),
-        social: socialScore(data.contacts),
-        system: 0,
-      }
+    ? (() => {
+        const infrastructure = infraScore(data.nodes);
+        const learning = learningScore(data.dueCards, data.allCards);
+        const work = workScore(data.deadlines);
+        return {
+          projects: projectsScore(data.tasks, data.sprints),
+          infra: infrastructure,
+          health: healthScore(data.healthMetrics),
+          finances:
+            selectedCurrencies.length === 1
+              ? financesScore(data.budgetCategories, selectedCurrencies[0])
+              : null,
+          learning,
+          work,
+          social: socialScore(data.contacts),
+          system: systemScore(infrastructure, work, learning),
+        };
+      })()
     : null;
-
-  if (scores) {
-    scores.system = Math.round(
-      (scores.infra + scores.work + scores.learning) / 3,
-    );
-  }
 
   // ── Domain card definitions ─────────────────────────────────────────────────
   const domainCards: DomainCardProps[] =
@@ -628,13 +619,33 @@ export default function DashboardPage() {
             icon: TrendingUp,
             path: "/finances",
             score: scores.finances,
+            privacyMasked: financesMasked,
             color: "text-emerald-400",
             bg: "bg-emerald-500/10",
-            metrics: [
-              { label: "Spent", value: `€${totalSpent.toFixed(0)}` },
-              { label: "Budget limit", value: `€${totalLimit.toFixed(0)}` },
-              { label: "Remaining", value: `€${budgetRemaining.toFixed(0)}` },
-            ],
+            metrics:
+              budgetsByCurrency.length === 0
+                ? [{ label: "Currency filter", value: "None selected" }]
+                : budgetsByCurrency.flatMap(
+                    ({ currency, spent, limit, remaining }) => [
+                      {
+                        label: `Spent (${currency})`,
+                        value: formatMoney(spent, currency, financesMasked, 0),
+                      },
+                      {
+                        label: `Limit (${currency})`,
+                        value: formatMoney(limit, currency, financesMasked, 0),
+                      },
+                      {
+                        label: `Remaining (${currency})`,
+                        value: formatMoney(
+                          remaining,
+                          currency,
+                          financesMasked,
+                          0,
+                        ),
+                      },
+                    ],
+                  ),
           },
           {
             domain: "learning",
@@ -775,7 +786,7 @@ export default function DashboardPage() {
               />
               <TickerItem
                 label="Budget"
-                value={`€${totalSpent.toFixed(0)} / €${totalLimit.toFixed(0)}`}
+                value={`${financeSummary("spent")} / ${financeSummary("limit")}`}
               />
               <TickerItem
                 label="Sleep last"
@@ -869,7 +880,7 @@ export default function DashboardPage() {
               />
               <KPITile
                 label="Budget left"
-                value={`€${budgetRemaining.toFixed(0)}`}
+                value={financeSummary("remaining")}
                 icon={CreditCard}
                 color="text-emerald-400"
               />

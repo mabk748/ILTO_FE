@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { format } from "date-fns";
 import type { AppearanceSpend } from "@/lib/api/types.ts";
 import {
   BarChart,
@@ -12,14 +11,26 @@ import {
   Line,
   CartesianGrid,
 } from "recharts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { FINANCIAL_VALUE_MASK } from "@/lib/finance.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   spend: AppearanceSpend[];
 }
 
 export default function AppearanceSpendView({ spend }: Props) {
+  const { masked, selectedCurrencies } = useFinancePreferences();
+  const timeZone = useTimeZone();
   const currencies = Array.from(new Set(spend.map((entry) => entry.currency)))
-    .filter(Boolean)
+    .filter(
+      (currency) =>
+        Boolean(currency) &&
+        selectedCurrencies.includes(
+          currency as (typeof selectedCurrencies)[number],
+        ),
+    )
     .sort();
   const [selectedCurrency, setSelectedCurrency] = useState(
     () => currencies[0] ?? "",
@@ -32,6 +43,14 @@ export default function AppearanceSpendView({ spend }: Props) {
     return (
       <div className="bg-card border border-border rounded-lg py-8 text-center text-sm text-muted-foreground">
         No imported appearance spending records.
+      </div>
+    );
+  }
+
+  if (currencies.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card py-8 text-center text-sm text-muted-foreground">
+        No appearance spending records match the selected finance currencies.
       </div>
     );
   }
@@ -64,15 +83,17 @@ export default function AppearanceSpendView({ spend }: Props) {
 
   // Monthly totals (line chart)
   const byMonth: Record<string, number> = {};
+  const monthOrder: Record<string, number> = {};
   for (const e of selectedSpend) {
-    const key = format(new Date(e.date), "MMM yy");
+    const key = formatInstant(e.date, timeZone, {
+      month: "short",
+      year: "2-digit",
+    });
     byMonth[key] = (byMonth[key] ?? 0) + e.amount;
+    monthOrder[key] = Math.min(monthOrder[key] ?? Infinity, Date.parse(e.date));
   }
   const monthData = Object.entries(byMonth)
-    .sort(
-      (a, b) =>
-        new Date(`01 ${a[0]}`).getTime() - new Date(`01 ${b[0]}`).getTime(),
-    )
+    .sort((a, b) => monthOrder[a[0]] - monthOrder[b[0]])
     .map(([month, total]) => ({ month, total: Number(total.toFixed(2)) }));
 
   const sorted = [...selectedSpend].sort(
@@ -122,7 +143,9 @@ export default function AppearanceSpendView({ spend }: Props) {
               {currency} total (all stored)
             </p>
             <p className="text-lg font-bold text-foreground mt-1">
-              {currency} {total.toFixed(2)}
+              {masked
+                ? FINANCIAL_VALUE_MASK
+                : `${currency} ${total.toFixed(2)}`}
             </p>
           </div>
         ))}
@@ -133,7 +156,9 @@ export default function AppearanceSpendView({ spend }: Props) {
           {activeCurrency} appearance spend (all stored records)
         </p>
         <p className="text-2xl font-bold text-foreground mt-1">
-          {activeCurrency} {totalForCurrency.toFixed(2)}
+          {masked
+            ? FINANCIAL_VALUE_MASK
+            : `${activeCurrency} ${totalForCurrency.toFixed(2)}`}
         </p>
         <p className="text-xs text-muted-foreground mt-0.5">
           {selectedSpend.length} {activeCurrency} transactions
@@ -145,44 +170,18 @@ export default function AppearanceSpendView({ spend }: Props) {
         <p className="text-sm font-semibold text-foreground mb-3">
           Spend by Category ({activeCurrency})
         </p>
-        <ResponsiveContainer width="100%" height={160}>
-          <BarChart
-            data={catData}
-            margin={{ top: 0, right: 0, bottom: 0, left: -20 }}
-          >
-            <XAxis
-              dataKey="cat"
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
-            />
-            <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
-            <Tooltip
-              contentStyle={{
-                background: "var(--card)",
-                border: "1px solid var(--border)",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-              labelStyle={{ color: "var(--foreground)" }}
-            />
-            <Bar dataKey="total" fill="var(--primary)" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Line chart: monthly */}
-      {monthData.length > 1 && (
-        <div className="bg-card border border-border rounded-lg p-4">
-          <p className="text-sm font-semibold text-foreground mb-3">
-            Monthly Spend Trend ({activeCurrency})
+        {masked ? (
+          <p className="py-14 text-center text-sm text-muted-foreground">
+            Financial chart hidden.
           </p>
-          <ResponsiveContainer width="100%" height={140}>
-            <LineChart
-              data={monthData}
+        ) : (
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart
+              data={catData}
               margin={{ top: 0, right: 0, bottom: 0, left: -20 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
               <XAxis
-                dataKey="month"
+                dataKey="cat"
                 tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
               />
               <YAxis tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} />
@@ -193,16 +192,60 @@ export default function AppearanceSpendView({ spend }: Props) {
                   borderRadius: 8,
                   fontSize: 12,
                 }}
+                labelStyle={{ color: "var(--foreground)" }}
               />
-              <Line
-                type="monotone"
+              <Bar
                 dataKey="total"
-                stroke="var(--primary)"
-                strokeWidth={2}
-                dot={false}
+                fill="var(--primary)"
+                radius={[4, 4, 0, 0]}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Line chart: monthly */}
+      {monthData.length > 1 && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <p className="text-sm font-semibold text-foreground mb-3">
+            Monthly Spend Trend ({activeCurrency})
+          </p>
+          {masked ? (
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              Financial chart hidden.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart
+                data={monthData}
+                margin={{ top: 0, right: 0, bottom: 0, left: -20 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--muted-foreground)" }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "var(--card)",
+                    border: "1px solid var(--border)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  stroke="var(--primary)"
+                  strokeWidth={2}
+                  dot={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
       )}
 
@@ -225,7 +268,11 @@ export default function AppearanceSpendView({ spend }: Props) {
                   {e.category}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  {format(new Date(e.date), "MMM d, yyyy")}
+                  {formatInstant(e.date, timeZone, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
                 </span>
                 {e.notes && (
                   <span className="text-[10px] text-muted-foreground truncate">
@@ -235,7 +282,9 @@ export default function AppearanceSpendView({ spend }: Props) {
               </div>
             </div>
             <p className="text-sm font-semibold text-foreground shrink-0">
-              {e.currency} {e.amount.toFixed(2)}
+              {masked
+                ? FINANCIAL_VALUE_MASK
+                : `${e.currency} ${e.amount.toFixed(2)}`}
             </p>
           </div>
         ))}

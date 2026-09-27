@@ -5,6 +5,11 @@ import type {
   ContactStatus,
   RelationshipType,
 } from "@/lib/api/types.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export const relationshipTypes = [
   "professional",
@@ -21,19 +26,11 @@ export const contactStatuses = [
 
 export type ContactDraft = Record<string, string>;
 
-export function toLocalDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  const pad = (part: number) => String(part).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || !Number.isFinite(date.getTime())) {
-    throw new Error(`${label} must be a valid date and time.`);
-  }
-  return date.toISOString();
+export function toLocalDateTimeValue(
+  value: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(value, timeZone);
 }
 
 function text(value: string, label: string, maxLength: number): string {
@@ -62,8 +59,14 @@ function nullableText(
   return trimmed || null;
 }
 
-function nullableUtcIso(value: string, label: string): string | null {
-  return value.trim() === "" ? null : toUtcIso(value, label);
+function nullableUtcIso(
+  value: string,
+  label: string,
+  timeZone: string,
+): string | null {
+  return value.trim() === ""
+    ? null
+    : zonedDateTimeToUtc(value, timeZone, label);
 }
 
 function choice<T extends string>(
@@ -89,7 +92,10 @@ export function tags(value: string): string[] {
   return result;
 }
 
-export function initialDraft(contact?: Contact): ContactDraft {
+export function initialDraft(
+  contact?: Contact,
+  timeZone = detectedTimeZone(),
+): ContactDraft {
   return {
     name: contact?.name ?? "",
     email: contact?.email ?? "",
@@ -97,10 +103,10 @@ export function initialDraft(contact?: Contact): ContactDraft {
     relationship: contact?.relationship ?? "professional",
     status: contact?.status ?? "active",
     last_contact: contact?.last_contact
-      ? toLocalDateTimeValue(contact.last_contact)
+      ? toLocalDateTimeValue(contact.last_contact, timeZone)
       : "",
     next_followup: contact?.next_followup
-      ? toLocalDateTimeValue(contact.next_followup)
+      ? toLocalDateTimeValue(contact.next_followup, timeZone)
       : "",
     notes: contact?.notes ?? "",
     tags: contact?.tags.join(", ") ?? "",
@@ -109,6 +115,7 @@ export function initialDraft(contact?: Contact): ContactDraft {
 
 export function buildContactInput(
   values: ContactDraft,
+  timeZone = detectedTimeZone(),
 ): api.CreateContactInput {
   return {
     name: text(values.name, "Name", 200),
@@ -120,8 +127,12 @@ export function buildContactInput(
       "relationship",
     ),
     status: choice(values.status, contactStatuses, "contact status"),
-    last_contact: nullableUtcIso(values.last_contact, "Last contact"),
-    next_followup: nullableUtcIso(values.next_followup, "Next follow-up"),
+    last_contact: nullableUtcIso(values.last_contact, "Last contact", timeZone),
+    next_followup: nullableUtcIso(
+      values.next_followup,
+      "Next follow-up",
+      timeZone,
+    ),
     notes: optionalText(values.notes, "Notes", 4000),
     tags: tags(values.tags),
   };
@@ -155,8 +166,9 @@ export function changedFields<T extends object>(
 export async function saveContact(
   contact: Contact | undefined,
   values: ContactDraft,
+  timeZone = detectedTimeZone(),
 ) {
-  const input = buildContactInput(values);
+  const input = buildContactInput(values, timeZone);
   return contact
     ? api.updateContact(contact.id, changedFields(input, contact))
     : api.createContact(input);

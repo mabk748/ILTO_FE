@@ -16,6 +16,7 @@ const category: BudgetCategory = {
   name: "Housing",
   monthly_limit: 1000,
   spent_this_month: 20,
+  currency: "EUR",
   color: "#123456",
 };
 
@@ -70,6 +71,7 @@ describe("Finance resource controls", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
       name: "Housing",
       monthly_limit: 1000,
+      currency: "EUR",
       color: "#6366f1",
     });
     expect(client.getQueryState(["finances"])?.isInvalidated).toBe(true);
@@ -91,7 +93,7 @@ describe("Finance resource controls", () => {
     fireEvent.change(dialog.getByLabelText("Budget category"), {
       target: { value: category.id },
     });
-    fireEvent.change(dialog.getByLabelText("Amount (EUR)"), {
+    fireEvent.change(dialog.getByLabelText("Amount"), {
       target: { value: "12.50" },
     });
     fireEvent.click(dialog.getByRole("button", { name: "Save" }));
@@ -101,5 +103,11 @@ describe("Finance resource controls", () => {
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(fetchMock.mock.calls[0][1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      category_id: category.id,
+      amount: 12.5,
+      currency: "EUR",
+      payment_type: "card",
+    });
   });
 });

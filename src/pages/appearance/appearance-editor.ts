@@ -7,6 +7,11 @@ import type {
   WardrobeCondition,
   WardrobeItem,
 } from "@/lib/api/types.ts";
+import {
+  detectedTimeZone,
+  toZonedDateTimeInput,
+  zonedDateTimeToUtc,
+} from "@/lib/time-zone.ts";
 
 export const clothingCategories = [
   "tops",
@@ -40,15 +45,12 @@ export type AppearanceTarget =
 
 export type AppearanceDraft = Record<string, string | string[]>;
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
 /** datetime-local is display-only; writes use UTC ISO instants. */
-export function toLocalDateTimeValue(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return "";
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export function toLocalDateTimeValue(
+  value: string,
+  timeZone = detectedTimeZone(),
+): string {
+  return toZonedDateTimeInput(value, timeZone);
 }
 
 function stringValue(values: AppearanceDraft, key: string): string {
@@ -61,16 +63,14 @@ function itemIds(values: AppearanceDraft): string[] {
   return Array.isArray(value) ? value : [];
 }
 
-function toUtcIso(value: string, label: string): string {
-  const date = new Date(value);
-  if (!value || !Number.isFinite(date.getTime())) {
-    throw new Error(`${label} must be a valid date and time.`);
-  }
-  return date.toISOString();
-}
-
-function nullableUtcIso(value: string, label: string): string | null {
-  return value.trim() === "" ? null : toUtcIso(value, label);
+function nullableUtcIso(
+  value: string,
+  label: string,
+  timeZone: string,
+): string | null {
+  return value.trim() === ""
+    ? null
+    : zonedDateTimeToUtc(value, timeZone, label);
 }
 
 function text(value: string, label: string, maxLength: number): string {
@@ -176,7 +176,10 @@ function selectedExistingItemIds(
   return unique;
 }
 
-export function initialDraft(target: AppearanceTarget): AppearanceDraft {
+export function initialDraft(
+  target: AppearanceTarget,
+  timeZone = detectedTimeZone(),
+): AppearanceDraft {
   if (target.kind === "wardrobe") {
     const item = target.record;
     return {
@@ -187,7 +190,7 @@ export function initialDraft(target: AppearanceTarget): AppearanceDraft {
       season: item?.season ?? "all_season",
       condition: item?.condition ?? "good",
       purchase_date: item?.purchase_date
-        ? toLocalDateTimeValue(item.purchase_date)
+        ? toLocalDateTimeValue(item.purchase_date, timeZone)
         : "",
       purchase_price: item?.purchase_price?.toString() ?? "",
       tags: item?.tags.join(", ") ?? "",
@@ -199,8 +202,8 @@ export function initialDraft(target: AppearanceTarget): AppearanceDraft {
   const outfit = target.record;
   return {
     date: outfit
-      ? toLocalDateTimeValue(outfit.date)
-      : toLocalDateTimeValue(new Date().toISOString()),
+      ? toLocalDateTimeValue(outfit.date, timeZone)
+      : toLocalDateTimeValue(new Date().toISOString(), timeZone),
     item_ids: outfit?.item_ids ?? [],
     occasion: outfit?.occasion ?? "",
     rating: outfit?.rating.toString() ?? "3",
@@ -212,6 +215,7 @@ export function buildAppearanceInput(
   target: AppearanceTarget,
   values: AppearanceDraft,
   wardrobeItems: WardrobeItem[],
+  timeZone = detectedTimeZone(),
 ): api.CreateWardrobeItemInput | api.CreateOutfitLogInput {
   if (target.kind === "wardrobe") {
     return {
@@ -232,6 +236,7 @@ export function buildAppearanceInput(
       purchase_date: nullableUtcIso(
         stringValue(values, "purchase_date"),
         "Purchase date",
+        timeZone,
       ),
       purchase_price: price(stringValue(values, "purchase_price")),
       tags: tags(stringValue(values, "tags")),
@@ -244,7 +249,11 @@ export function buildAppearanceInput(
 
   return {
     item_ids: selectedExistingItemIds(itemIds(values), wardrobeItems),
-    date: toUtcIso(stringValue(values, "date"), "Outfit date"),
+    date: zonedDateTimeToUtc(
+      stringValue(values, "date"),
+      timeZone,
+      "Outfit date",
+    ),
     occasion: text(stringValue(values, "occasion"), "Occasion", 200),
     rating: rating(stringValue(values, "rating")),
     notes: optionalText(stringValue(values, "notes"), "Notes", 4000),
@@ -284,8 +293,9 @@ export async function saveAppearanceResource(
   target: AppearanceTarget,
   values: AppearanceDraft,
   wardrobeItems: WardrobeItem[],
+  timeZone = detectedTimeZone(),
 ) {
-  const input = buildAppearanceInput(target, values, wardrobeItems);
+  const input = buildAppearanceInput(target, values, wardrobeItems, timeZone);
   if (target.kind === "wardrobe") {
     const item = input as api.CreateWardrobeItemInput;
     return target.record

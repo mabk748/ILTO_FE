@@ -27,6 +27,12 @@ import {
 } from "@/lib/api/intelligence.ts";
 import type { CorrelationPoint } from "@/lib/api/intelligence.ts";
 import LoadError from "@/components/LoadError.tsx";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import {
+  financeCurrency,
+  formatCompactMoney,
+  formatMoney,
+} from "@/lib/finance.ts";
 
 type ChartSpec = {
   title: string;
@@ -104,6 +110,8 @@ function EmptyChart({ children }: { children: React.ReactNode }) {
 }
 
 export default function CorrelationCharts() {
+  const { selectedCurrencies, masked } = useFinancePreferences();
+  const currency = selectedCurrencies[0] ?? "EUR";
   const {
     data,
     error,
@@ -125,9 +133,25 @@ export default function CorrelationCharts() {
 
   const chartData = [
     data?.sleepVsCommits ?? [],
-    data?.budgetVsVelocity ?? [],
+    (data?.budgetVsVelocity ?? [])
+      .filter((point) =>
+        selectedCurrencies.includes(financeCurrency(point.currency)),
+      )
+      .map((point) => ({
+        ...point,
+        label:
+          selectedCurrencies.length > 1
+            ? `${point.label} (${financeCurrency(point.currency)})`
+            : point.label,
+      })),
     data?.hrvVsRpe ?? [],
   ];
+  const netWorthData =
+    selectedCurrencies.length === 1
+      ? (data?.netWorth ?? []).filter(
+          (point) => financeCurrency(point.currency) === currency,
+        )
+      : [];
 
   if (loading) {
     return (
@@ -157,7 +181,9 @@ export default function CorrelationCharts() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {chartData[i].length === 0 ? (
+              {masked && spec.title === "Budget Spend vs Sprint Velocity" ? (
+                <EmptyChart>Financial chart hidden.</EmptyChart>
+              ) : chartData[i].length === 0 ? (
                 <EmptyChart>
                   {spec.title === "Sleep vs Commits"
                     ? "No dated sleep and commit observations are stored yet."
@@ -230,15 +256,27 @@ export default function CorrelationCharts() {
             </CardTitle>
             <CardDescription className="text-[11px]">
               Finances — assets, liabilities & net worth over 12 months
+              {selectedCurrencies.length === 1 ? ` (${currency})` : ""}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {(data?.netWorth ?? []).length === 0 ? (
+            {masked ? (
+              <EmptyChart>Financial chart hidden.</EmptyChart>
+            ) : (data?.netWorth ?? []).length === 0 ? (
               <EmptyChart>No stored net-worth points yet.</EmptyChart>
+            ) : selectedCurrencies.length !== 1 ? (
+              <EmptyChart>
+                Select exactly one currency to chart monetary net-worth values
+                without mixing currencies.
+              </EmptyChart>
+            ) : netWorthData.length === 0 ? (
+              <EmptyChart>
+                No stored net-worth points match the selected currency.
+              </EmptyChart>
             ) : (
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart
-                  data={data?.netWorth ?? []}
+                  data={netWorthData}
                   margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
                 >
                   <defs>
@@ -270,7 +308,9 @@ export default function CorrelationCharts() {
                     tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(v: number) => `€${(v / 1000).toFixed(0)}k`}
+                    tickFormatter={(value: number) =>
+                      formatCompactMoney(value, currency)
+                    }
                   />
                   <Tooltip
                     contentStyle={{
@@ -281,7 +321,7 @@ export default function CorrelationCharts() {
                     }}
                     formatter={(value: unknown) => [
                       typeof value === "number"
-                        ? `€${value.toFixed(0)}`
+                        ? formatMoney(value, currency, false, 0)
                         : String(value ?? ""),
                       "",
                     ]}

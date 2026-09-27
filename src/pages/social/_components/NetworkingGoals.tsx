@@ -1,7 +1,8 @@
 import type { NetworkingGoal } from "@/lib/api/types.ts";
 import { Card, CardContent } from "@/components/ui/card.tsx";
-import { format } from "date-fns";
 import { cn } from "@/lib/utils.ts";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   goals: NetworkingGoal[];
@@ -15,6 +16,7 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export default function NetworkingGoals({ goals }: Props) {
+  const timeZone = useTimeZone();
   return (
     <div className="space-y-3">
       {goals.length === 0 && (
@@ -64,7 +66,12 @@ export default function NetworkingGoals({ goals }: Props) {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Due {format(new Date(g.due_date), "MMM d, yyyy")}
+                Due{" "}
+                {formatInstant(g.due_date, timeZone, {
+                  year: "numeric",
+                  month: "short",
+                  day: "numeric",
+                })}
               </p>
             </CardContent>
           </Card>

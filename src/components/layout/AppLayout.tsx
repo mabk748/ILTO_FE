@@ -15,13 +15,17 @@ import {
   Settings,
   Brain,
   MoreHorizontal,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils.ts";
 import { useOwnerAuth } from "@/components/providers/owner-auth-context.ts";
 import { Button } from "@/components/ui/button.tsx";
-import type { DomainName } from "@/lib/api/types.ts";
+import type { DomainName, FinanceCurrency } from "@/lib/api/types.ts";
 import { useSettings } from "@/components/providers/settings-context.ts";
 import { APP_VERSION } from "@/config/app-version.ts";
+import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
+import { FINANCE_CURRENCIES } from "@/lib/finance.ts";
 import {
   Sheet,
   SheetClose,
@@ -114,6 +118,14 @@ export default function AppLayout() {
   const { owner, logout } = useOwnerAuth();
   const location = useLocation();
   const { settings } = useSettings();
+  const {
+    currency,
+    selectedCurrencies,
+    masked,
+    setCurrency,
+    setSelectedCurrencies,
+    setMasked,
+  } = useFinancePreferences();
   const visibleNavItems = navItems.filter(
     (item) => !item.domain || settings.domainVisibility[item.domain],
   );
@@ -122,6 +134,25 @@ export default function AppLayout() {
   const isMoreActive = mobileMoreItems.some(({ path }) =>
     location.pathname.startsWith(path),
   );
+  const allCurrenciesSelected =
+    selectedCurrencies.length === FINANCE_CURRENCIES.length;
+  const currencyFilterLabel =
+    selectedCurrencies.length === 0
+      ? "No currencies"
+      : allCurrenciesSelected
+        ? "All currencies"
+        : selectedCurrencies.join(", ");
+
+  const toggleCurrency = (nextCurrency: FinanceCurrency) => {
+    setSelectedCurrencies(
+      selectedCurrencies.includes(nextCurrency)
+        ? selectedCurrencies.filter((item) => item !== nextCurrency)
+        : FINANCE_CURRENCIES.filter(
+            (item) =>
+              item === nextCurrency || selectedCurrencies.includes(item),
+          ),
+    );
+  };
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -156,7 +187,79 @@ export default function AppLayout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto pb-16 md:pb-0">
-        <header className="flex items-center justify-end gap-3 border-b px-4 py-2 text-sm">
+        <header className="flex flex-wrap items-center justify-end gap-2 border-b px-4 py-2 text-sm">
+          <details className="relative">
+            <summary className="flex h-8 cursor-pointer list-none items-center rounded-md border border-border bg-background px-2 text-xs text-muted-foreground">
+              Finance: {currencyFilterLabel}
+            </summary>
+            <div className="absolute right-0 z-50 mt-1 w-56 space-y-3 rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-md">
+              <fieldset className="space-y-2">
+                <legend className="text-xs font-semibold">
+                  Display currencies
+                </legend>
+                <label className="flex items-center gap-2 text-xs">
+                  <input
+                    type="checkbox"
+                    aria-label="All finance currencies"
+                    checked={allCurrenciesSelected}
+                    onChange={() =>
+                      setSelectedCurrencies(
+                        allCurrenciesSelected ? [] : [...FINANCE_CURRENCIES],
+                      )
+                    }
+                  />
+                  All currencies
+                </label>
+                {FINANCE_CURRENCIES.map((option) => (
+                  <label
+                    key={option}
+                    className="flex items-center gap-2 text-xs"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedCurrencies.includes(option)}
+                      onChange={() => toggleCurrency(option)}
+                    />
+                    {option}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="block space-y-1 text-xs">
+                <span className="font-semibold">New-entry default</span>
+                <select
+                  aria-label="Default finance entry currency"
+                  className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
+                  value={currency}
+                  onChange={(event) =>
+                    setCurrency(event.target.value as FinanceCurrency)
+                  }
+                >
+                  {FINANCE_CURRENCIES.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </details>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            aria-pressed={masked}
+            aria-label={masked ? "Show financial data" : "Mask financial data"}
+            onClick={() => setMasked(!masked)}
+          >
+            {masked ? (
+              <Eye className="h-4 w-4 sm:mr-1.5" />
+            ) : (
+              <EyeOff className="h-4 w-4 sm:mr-1.5" />
+            )}
+            <span className="hidden sm:inline">
+              {masked ? "Show finances" : "Mask finances"}
+            </span>
+          </Button>
           <span>{owner?.username}</span>
           <Button variant="outline" size="sm" onClick={() => void logout()}>
             Sign out

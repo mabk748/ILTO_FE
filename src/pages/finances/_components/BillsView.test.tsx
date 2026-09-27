@@ -26,6 +26,7 @@ it("keeps an overdue bill unpaid when saving fails", async () => {
             id: "bill1",
             name: "Overdue bill",
             amount: 10,
+            currency: "EUR",
             due_date: "2020-01-01",
             recurrence: "one_time",
             paid: false,

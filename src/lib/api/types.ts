@@ -148,6 +148,14 @@ export interface HealthMetric {
 
 // --- FINANCES DOMAIN ---
 export type TransactionType = "income" | "expense" | "transfer" | "investment";
+export type FinanceCurrency = "EUR" | "MAD" | "USD";
+export type PaymentType =
+  | "cash"
+  | "bank_transfer"
+  | "card"
+  | "mobile_payment"
+  | "direct_debit"
+  | "other";
 export type AssetClass =
   "cash" | "equity" | "crypto" | "real_estate" | "bond" | "other";
 
@@ -156,6 +164,7 @@ export interface BudgetCategory {
   name: string;
   monthly_limit: number;
   spent_this_month: number;
+  currency: FinanceCurrency;
   color: string;
 }
 
@@ -164,7 +173,8 @@ export interface Transaction {
   category_id: string;
   type: TransactionType;
   amount: number;
-  currency: "EUR";
+  currency: FinanceCurrency;
+  payment_type: PaymentType;
   description: string;
   date: ISODateString;
   tags: string[];
@@ -177,6 +187,7 @@ export interface TradeEntry {
   action: "buy" | "sell";
   quantity: number;
   price: number;
+  currency: FinanceCurrency;
   date: ISODateString;
   notes: string;
 }
@@ -187,12 +198,14 @@ export interface NetWorthSnapshot {
   total_assets: number;
   total_liabilities: number;
   net_worth: number;
+  currency: FinanceCurrency;
 }
 
 export interface Bill {
   id: string;
   name: string;
   amount: number;
+  currency: FinanceCurrency;
   due_date: ISODateString;
   recurrence: "monthly" | "quarterly" | "annual" | "one_time";
   paid: boolean;

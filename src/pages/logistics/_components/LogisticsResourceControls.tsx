@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -103,14 +104,15 @@ function Editor({
 }) {
   const id = useId();
   const queryClient = useQueryClient();
+  const timeZone = useTimeZone();
   const [values, setValues] = useState<LogisticsDraft>(() =>
-    initialDraft(target),
+    initialDraft(target, timeZone),
   );
   const mutation = useMutation({
     mutationFn: async () =>
       mode === "delete"
         ? removeLogisticsResource(target)
-        : saveLogisticsResource(target, values),
+        : saveLogisticsResource(target, values, timeZone),
     retry: false,
   });
   const change = (key: string, value: string | boolean) =>

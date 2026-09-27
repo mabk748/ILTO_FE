@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow, isPast } from "date-fns";
+import { formatDistanceToNow, isPast } from "date-fns";
 import type {
   GroomingRoutine,
   OutfitLog,
@@ -7,6 +7,8 @@ import type {
 import { cn } from "@/lib/utils.ts";
 import { Flame, Clock } from "lucide-react";
 import AppearanceResourceControls from "./AppearanceResourceControls.tsx";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
+import { formatInstant } from "@/lib/time-zone.ts";
 
 const categoryBadge: Record<string, string> = {
   skincare: "bg-rose-500/20 text-rose-400 border-rose-500/30",
@@ -35,6 +37,7 @@ export default function GroomingRoutineList({
   outfitLogs,
   wardrobeItems,
 }: Props) {
+  const timeZone = useTimeZone();
   const itemMap = Object.fromEntries(wardrobeItems.map((i) => [i.id, i]));
   const dueToday = routines.filter((r) => {
     const due = new Date(r.next_due);
@@ -118,7 +121,11 @@ export default function GroomingRoutineList({
                       overdue ? "text-destructive font-medium" : "",
                     )}
                   >
-                    Due: {format(new Date(r.next_due), "MMM d")}
+                    Due:{" "}
+                    {formatInstant(r.next_due, timeZone, {
+                      month: "short",
+                      day: "numeric",
+                    })}
                     {overdue && " (overdue)"}
                   </span>
                 </div>
@@ -195,7 +202,10 @@ export default function GroomingRoutineList({
                       {log.occasion}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {format(new Date(log.date), "MMM d")}
+                      {formatInstant(log.date, timeZone, {
+                        month: "short",
+                        day: "numeric",
+                      })}
                       {log.notes && ` · ${log.notes}`}
                     </p>
                     {missingItemCount > 0 && (

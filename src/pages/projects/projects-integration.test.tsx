@@ -120,6 +120,55 @@ afterEach(() => {
 });
 
 describe("Projects UI with a mocked backend", () => {
+  it("labels task cards by project and filters by any project or all projects", async () => {
+    data.projects.push({ ...project, id: "p2", name: "Project Beta" });
+    data.tasks.push({
+      ...task,
+      id: "t2",
+      project_id: "p2",
+      title: "Task Beta",
+    });
+    setup(<KanbanBoard />);
+
+    expect(await screen.findByText("Project: Project Alpha")).toBeVisible();
+    expect(screen.getByText("Project: Project Beta")).toBeVisible();
+
+    const allProjects = screen.getByRole("checkbox", {
+      name: "All projects",
+    });
+    const projectAlpha = screen.getByRole("checkbox", {
+      name: "Project Alpha",
+    });
+    const projectBeta = screen.getByRole("checkbox", {
+      name: "Project Beta",
+    });
+    expect(allProjects).toBeChecked();
+    expect(projectAlpha).toBeChecked();
+    expect(projectBeta).toBeChecked();
+
+    fireEvent.click(projectAlpha);
+    expect(allProjects).not.toBeChecked();
+    expect(screen.queryByText("Task Alpha")).not.toBeInTheDocument();
+    expect(screen.getByText("Task Beta")).toBeVisible();
+
+    fireEvent.click(projectBeta);
+    expect(screen.queryByText("Task Beta")).not.toBeInTheDocument();
+
+    fireEvent.click(allProjects);
+    expect(allProjects).toBeChecked();
+    expect(screen.getByText("Task Alpha")).toBeVisible();
+    expect(screen.getByText("Task Beta")).toBeVisible();
+  });
+
+  it("shows an honest project fallback for an unresolved task project", async () => {
+    data.tasks[0] = { ...task, project_id: "missing-project" };
+    setup(<KanbanBoard />);
+
+    expect(
+      await screen.findByText("Project: Project unavailable"),
+    ).toBeVisible();
+  });
+
   it("refreshes summary, Kanban, sprint progress/velocity, milestones and Gantt after a status PATCH", async () => {
     setup(
       <>

@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTimeZone } from "@/components/providers/settings-context.ts";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -84,8 +85,9 @@ function Editor({
 }) {
   const id = useId();
   const queryClient = useQueryClient();
+  const timeZone = useTimeZone();
   const [values, setValues] = useState<ContactDraft>(() =>
-    initialDraft(contact),
+    initialDraft(contact, timeZone),
   );
   const mutation = useMutation({
     mutationFn: async () =>
@@ -93,7 +95,7 @@ function Editor({
         ? contact
           ? deleteContact(contact.id)
           : Promise.reject(new Error("Select a saved contact first."))
-        : saveContact(contact, values),
+        : saveContact(contact, values, timeZone),
     retry: false,
   });
   const change = (key: string, value: string) =>
