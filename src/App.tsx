@@ -13,6 +13,7 @@ const InfrastructurePage = lazy(
 const HealthPage = lazy(() => import("./pages/health/page.tsx"));
 const FinancesPage = lazy(() => import("./pages/finances/page.tsx"));
 const LearningPage = lazy(() => import("./pages/learning/page.tsx"));
+const LearningGoalPage = lazy(() => import("./pages/learning/goal-page.tsx"));
 const WorkPage = lazy(() => import("./pages/work/page.tsx"));
 const SocialPage = lazy(() => import("./pages/social/page.tsx"));
 const AppearancePage = lazy(() => import("./pages/appearance/page.tsx"));
@@ -60,6 +61,10 @@ export default function App() {
               <Route path="/health" element={<HealthPage />} />
               <Route path="/finances" element={<FinancesPage />} />
               <Route path="/learning" element={<LearningPage />} />
+              <Route
+                path="/learning/goals/:goalId"
+                element={<LearningGoalPage />}
+              />
               <Route path="/work" element={<WorkPage />} />
               <Route path="/social" element={<SocialPage />} />
               <Route path="/appearance" element={<AppearancePage />} />

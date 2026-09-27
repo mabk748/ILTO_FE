@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
 import LearningPage from "./page.tsx";
 import type { LearningRoadmap, SkillNode } from "@/lib/api/types.ts";
 
@@ -67,6 +68,44 @@ describe("Learning skill refresh", () => {
         return Response.json([]);
       }
       if (url.endsWith("/learning/reading")) return Response.json([]);
+      if (url.endsWith("/learning/dashboard")) {
+        return Response.json({
+          active_goals: [],
+          today_sessions: [],
+          week_sessions: [],
+          minutes_planned: 0,
+          minutes_completed: 0,
+          latest_assessment: null,
+          assessment_score_history: [],
+          open_bottlenecks: [],
+          upcoming_dates: [],
+          latest_weekly_review: null,
+          linked_project_activity: [],
+          next_focus: null,
+        });
+      }
+      if (
+        url.endsWith("/learning/goals") ||
+        url.endsWith("/learning/study-schedules") ||
+        url.endsWith("/learning/study-sessions") ||
+        url.endsWith("/learning/assessments") ||
+        url.endsWith("/learning/bottlenecks") ||
+        url.endsWith("/learning/weekly-reviews") ||
+        url.endsWith("/projects/sprints") ||
+        url.endsWith("/projects/tasks") ||
+        url.endsWith("/projects/milestones")
+      ) {
+        return Response.json([]);
+      }
+      if (url.includes("/projects?page=1&per_page=100")) {
+        return Response.json({
+          data: [],
+          page: 1,
+          per_page: 100,
+          total: 0,
+          total_pages: 1,
+        });
+      }
       throw new Error(`Unexpected request: ${method} ${url}`);
     });
 
@@ -75,10 +114,17 @@ describe("Learning skill refresh", () => {
     });
     render(
       <QueryClientProvider client={client}>
-        <LearningPage />
+        <MemoryRouter>
+          <LearningPage />
+        </MemoryRouter>
       </QueryClientProvider>,
     );
 
+    expect(
+      await screen.findByText("No study sessions are planned for today."),
+    ).toBeInTheDocument();
+    const resourcesTab = screen.getByRole("tab", { name: "Resources" });
+    fireEvent.mouseDown(resourcesTab, { button: 0, ctrlKey: false });
     expect(await screen.findByText("0 / 0 skills")).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", {

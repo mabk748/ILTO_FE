@@ -259,6 +259,173 @@ export interface ReadingEntry {
   tags: string[];
 }
 
+export type LearningGoalType =
+  "certification" | "language" | "course" | "skill";
+export type LearningGoalStatus = "planned" | "active" | "paused" | "completed";
+export type StudySessionType =
+  | "study"
+  | "practice_questions"
+  | "mock_exam"
+  | "practical_project"
+  | "review"
+  | "language"
+  | "other";
+export type AssessmentType =
+  "baseline" | "question_set" | "mock_exam" | "real_exam";
+export type BottleneckStatus = "open" | "improving" | "resolved";
+export type LearningMilestoneStatus = "planned" | "completed";
+
+export interface LearningGoal {
+  id: string;
+  title: string;
+  provider: string;
+  type: LearningGoalType;
+  status: LearningGoalStatus;
+  start_date: CalendarDateString;
+  target_date: CalendarDateString | null;
+  exam_date: CalendarDateString | null;
+  phase: string | null;
+  description: string;
+  priority: Priority;
+  linked_project_id: string | null;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
+export interface StudySchedule {
+  id: string;
+  learning_goal_id: string;
+  weekday: number;
+  session_type: StudySessionType;
+  planned_minutes: number;
+  topic: string;
+  notes: string;
+  start_date: CalendarDateString;
+  end_date: CalendarDateString | null;
+  active: boolean;
+  linked_project_id: string | null;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
+export interface StudySession {
+  id: string;
+  learning_goal_id: string;
+  date: CalendarDateString;
+  session_type: StudySessionType;
+  planned_minutes: number;
+  actual_minutes: number;
+  topic: string;
+  notes: string;
+  completed: boolean;
+  linked_project_id: string | null;
+  bottleneck_id: string | null;
+  study_schedule_id: string | null;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
+export interface AssessmentAttempt {
+  id: string;
+  learning_goal_id: string;
+  date: CalendarDateString;
+  assessment_type: AssessmentType;
+  score_percent: number;
+  source: string | null;
+  notes: string;
+  duration_minutes: number | null;
+  created_at: ISODateString;
+}
+
+export interface LearningBottleneck {
+  id: string;
+  learning_goal_id: string;
+  assessment_attempt_id: string | null;
+  topic: string;
+  description: string;
+  priority: Priority;
+  status: BottleneckStatus;
+  created_at: ISODateString;
+  resolved_at: ISODateString | null;
+}
+
+export interface LearningMilestone {
+  id: string;
+  learning_goal_id: string;
+  title: string;
+  target_date: CalendarDateString;
+  completed_at: ISODateString | null;
+  status: LearningMilestoneStatus;
+  created_at: ISODateString;
+}
+
+export interface WeeklyReview {
+  id: string;
+  week_start: CalendarDateString;
+  learning_goal_id: string | null;
+  learned: string;
+  can_do_now: string;
+  main_bottleneck: string;
+  applied_to_project: string;
+  next_week_focus: string;
+  notes: string;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
+export interface AssessmentScorePoint {
+  learning_goal_id: string;
+  date: CalendarDateString;
+  score_percent: number;
+}
+
+export interface UpcomingLearningDate {
+  id: string;
+  learning_goal_id: string;
+  title: string;
+  date: CalendarDateString;
+  kind: "milestone" | "exam";
+}
+
+export interface LearningNextFocus {
+  kind: "bottleneck" | "milestone" | "study_session";
+  id: string;
+  learning_goal_id: string;
+  title: string;
+  detail: string;
+  target_date: CalendarDateString | null;
+}
+
+export interface LearningDashboard {
+  active_goals: LearningGoal[];
+  today_sessions: StudySession[];
+  week_sessions: StudySession[];
+  minutes_planned: number;
+  minutes_completed: number;
+  latest_assessment: AssessmentAttempt | null;
+  assessment_score_history: AssessmentScorePoint[];
+  open_bottlenecks: LearningBottleneck[];
+  upcoming_dates: UpcomingLearningDate[];
+  latest_weekly_review: WeeklyReview | null;
+  linked_project_activity: StudySession[];
+  next_focus: LearningNextFocus | null;
+}
+
+export interface LearningGoalProgress {
+  goal: LearningGoal;
+  total_study_minutes: number;
+  weekly_study_minutes: number;
+  assessment_score_history: AssessmentScorePoint[];
+  open_bottlenecks: LearningBottleneck[];
+  resolved_bottlenecks: LearningBottleneck[];
+  milestones: LearningMilestone[];
+  milestones_completed: number;
+  milestones_total: number;
+  recent_sessions: StudySession[];
+  practical_project_sessions: StudySession[];
+  next_focus: LearningNextFocus | null;
+}
+
 // --- WORK DOMAIN ---
 export type CertStatus = "planned" | "in_progress" | "completed" | "expired";
 
