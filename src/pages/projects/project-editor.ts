@@ -5,9 +5,11 @@ import type {
   Task,
   Milestone,
   Priority,
+  TaskCategory,
 } from "@/lib/api/types.ts";
 import { ApiError } from "@/lib/api/errors.ts";
 import { parseCalendarDate } from "@/lib/calendar-date.ts";
+import { TASK_CATEGORIES } from "./task-model.ts";
 
 export type EditorTarget =
   | { kind: "project"; record?: Project }
@@ -33,6 +35,8 @@ export function initialDraft(target: EditorTarget): Draft {
     sprint_id: "",
     assignee: "",
     story_points: "0",
+    category: "other",
+    acceptance_criteria: "",
     start_date: "",
     end_date: "",
     due_date: "",
@@ -150,6 +154,10 @@ export async function saveResource(
         );
       if (values.assignee.length > 200)
         throw new Error("Assignee must be at most 200 characters.");
+      if (values.acceptance_criteria.length > 10_000)
+        throw new Error(
+          "Acceptance criteria must be at most 10,000 characters.",
+        );
       const input: api.CreateTaskInput = {
         project_id: values.project_id,
         sprint_id: values.sprint_id || null,
@@ -157,12 +165,23 @@ export async function saveResource(
         description: values.description,
         status: choice(values.status, statuses.task),
         priority: choice(values.priority, priorities),
+        category: choice(values.category, TASK_CATEGORIES) as TaskCategory,
         assignee:
           values.assignee || (target.record?.assignee === "" ? "" : null),
         story_points,
+        acceptance_criteria: values.acceptance_criteria.trim()
+          ? values.acceptance_criteria
+          : null,
       };
+      const original = target.record
+        ? {
+            ...target.record,
+            category: target.record.category ?? "other",
+            acceptance_criteria: target.record.acceptance_criteria ?? null,
+          }
+        : undefined;
       return target.record
-        ? api.updateTask(target.record.id, changedFields(input, target.record))
+        ? api.updateTask(target.record.id, changedFields(input, original!))
         : api.createTask(input);
     }
     case "milestone": {
@@ -205,7 +224,7 @@ export function projectWriteError(error: unknown): string {
     if (error.status === 409)
       return "This change conflicts with dependent records. Move or remove dependents explicitly first (sprints, tasks, or milestones for a project; tasks for a sprint). Nothing was cascade-deleted.";
     if (error.status === 422)
-      return "The backend rejected these values. Check dates, required fields, and project/sprint relationships.";
+      return "The backend rejected these values. Check dates, required fields, category, and project/sprint relationships.";
     if (error.status === 404)
       return "This record or a related project/sprint no longer exists. Close the form and refresh before trying again.";
     if (

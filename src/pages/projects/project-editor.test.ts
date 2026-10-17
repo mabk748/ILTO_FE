@@ -44,6 +44,10 @@ describe("Projects editor payloads (mocked HTTP)", () => {
       const expected: Record<string, unknown> = { ...target.record! };
       for (const key of ["id", "created_at", "updated_at", "velocity"])
         delete expected[key];
+      if (target.kind === "task") {
+        expected.category = "other";
+        expected.acceptance_criteria = null;
+      }
       expect(payload).toEqual(expected);
       for (const key of ["id", "created_at", "updated_at", "velocity"])
         expect(payload).not.toHaveProperty(key);
@@ -117,6 +121,8 @@ describe("Projects editor payloads (mocked HTTP)", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
       sprint_id: null,
       assignee: null,
+      category: "other",
+      acceptance_criteria: null,
     });
     expect(
       JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).completed_at,
@@ -141,6 +147,52 @@ describe("Projects editor payloads (mocked HTTP)", () => {
     ]);
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
       title: "Renamed",
+    });
+  });
+  it("creates and edits task classification and multiline acceptance criteria exactly", async () => {
+    const createDraft = {
+      ...initialDraft({ kind: "task" }),
+      project_id: project.id,
+      title: "Verify isolation",
+      category: "test",
+      acceptance_criteria: "User A cannot read User B.\nAutomated tests pass.",
+    };
+    await saveResource({ kind: "task" }, createDraft, [sprint]);
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toMatchObject({
+      category: "test",
+      acceptance_criteria: "User A cannot read User B.\nAutomated tests pass.",
+    });
+
+    const classified = {
+      ...task,
+      category: "backend" as const,
+      acceptance_criteria: "Old criteria",
+    };
+    const target = { kind: "task", record: classified } as const;
+    await saveResource(
+      target,
+      {
+        ...initialDraft(target),
+        category: "security",
+        acceptance_criteria: "New criteria",
+      },
+      [sprint],
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+      category: "security",
+      acceptance_criteria: "New criteria",
+    });
+  });
+
+  it("treats missing task classification fields as legacy defaults without PATCHing them", async () => {
+    const target = { kind: "task", record: task } as const;
+    await saveResource(
+      target,
+      { ...initialDraft(target), title: "Legacy task renamed" },
+      [sprint],
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
+      title: "Legacy task renamed",
     });
   });
   it("rejects cross-project sprint assignment before sending", async () => {

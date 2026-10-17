@@ -1,5 +1,232 @@
 # Changelog
 
+## 2026-10-17 — V0.2 release hardening: Pause/Switch note integrity
+
+- Updated Pause and Switch for the backend 0.1.17 note-concurrency contract.
+  Unchanged notes are omitted and preserved; explicit updates and clears send
+  the draft's captured `expected_updated_at` with `resume_note`.
+- Bound every dirty Focus note to its originating FocusSession ID, saved-note
+  baseline and server version. A stale Switch can reveal another session
+  without rebinding or submitting the retained draft to that session.
+- Kept uncertain Switch retries on the original idempotency key and exact
+  payload. Conflict responses refetch authoritative Focus state, retain the
+  draft, and never repeat a lifecycle action automatically.
+- Added mocked adapter/workspace regressions for unchanged, updated and cleared
+  Pause/Switch notes, stale versions, explicit recovery, cross-session draft
+  isolation, background refresh and stable-key replay. No backend, database,
+  dependency, Docker or deployment changes were made.
+
+### Actual checks
+
+- `npm run test:unit -- src/lib/api/project-focus.test.ts src/pages/projects/focus-workspace.test.tsx`: passed (48 tests).
+- `npm test`: passed (85 Vitest files, 564 tests, plus version and deployment checks).
+- `npm run build`: passed (3,103 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+
+## 2026-10-16 — V0.2 Corrective Batch 3 focus-aware Project deletion
+
+- Updated the deletion-impact adapter for backend 0.1.16 FocusSession counts,
+  finished-history impact, and the required opaque confirmation token; the
+  explicit delete payload now sends the reviewed token with the exact Project
+  name. Restrictive normal Project deletion remains unchanged.
+- Added active/paused/finished FocusSession grouping and blocker messaging to
+  the existing confirmation dialog without exposing resume notes or offering
+  automatic session transitions.
+- Kept a reviewed preview snapshot separate from background query data. Stale,
+  unfinished-session, unsafe-dependency and database 409s refresh authoritative
+  impact without retrying deletion and require explicit reconfirmation.
+- Added mocked adapter/dialog coverage for complete FocusSession previews,
+  token submission, blockers, stale previews, and reconfirmation. No backend,
+  database, dependency or deployment changes were made.
+
+### Actual checks
+
+- `npm run test:unit -- src/lib/api/project-deletion.test.ts src/pages/projects/project-deletion-dialog.test.tsx`: passed (53 tests).
+- `npm test`: passed (85 Vitest files, 560 tests, plus version and deployment checks).
+- `npm run build`: passed (3,103 Vite modules transformed).
+
+## 2026-10-16 — V0.2 Corrective Batch 2 persistent Focus notes
+
+- Added the typed backend 0.1.15 `PATCH /projects/focus-sessions/:id/resume-note`
+  adapter with `expected_updated_at`, null clearing and complete-session
+  response validation. No backend or deployment changes were made.
+- Added explicit Save Note editing for active and paused FocusSessions, character
+  limits, dirty/saved states, server-confirmed reconciliation and cache updates.
+- Preserved drafts across background refetches and 409/unknown outcomes; a
+  conflict refreshes authoritative state and requires an explicit retry after
+  review. Existing Pause/Switch payload behavior and V0.1.14 switch preconditions
+  remain intact.
+- Added scoped internal navigation/history and browser-exit protection for dirty
+  Focus notes without migrating the existing BrowserRouter or adding packages.
+- Added mocked adapter, active/paused persistence, clearing, conflict/retry,
+  refetch-preservation and navigation-guard coverage.
+
+### Actual checks
+
+- `npm run test:unit -- src/lib/api/project-focus.test.ts src/pages/projects/focus-workspace.test.tsx`: passed (39 tests).
+- `npm test`: passed (85 Vitest files, 554 tests, plus version and deployment checks).
+- `npm run build`: passed (3,103 Vite modules transformed).
+
+## 2026-10-16 — V0.2 Phase 3 NEXT queue and Project dashboard
+
+- Replaced the status-only NEXT list with a bounded, exclusive execution horizon
+  for paused sessions, current in-progress work, highest-priority eligible Tasks,
+  active-Sprint Tasks, review work and a small upcoming sample. Added NOW/Board
+  drill-downs and server-confirmed direct resume without reproducing the backlog.
+- Expanded EXPLORE overview into a Project-scoped interactive dashboard using
+  actual Task statuses, all active Sprints, story points, Milestones, repository
+  references, backend Focus recommendation and existing Sprint velocity.
+- Labels every percentage by its explicit denominator and omits it for zero
+  denominators; no objective completion, blocker state or fabricated data is
+  inferred.
+- Fixed numeric Radix Progress semantics, Horizon invalidation after Milestone
+  writes/imports, global Dashboard first-active-Sprint selection, scoped
+  hardcoded chart/status colors and keyboard navigation for Gantt bars.
+- Added mocked HTTP/jsdom and pure-function coverage for queue ordering/bounds,
+  multiple active Sprints, zero-value cases, drill-down/history, Focus resume,
+  Milestone invalidation, Progress semantics and management-view regressions.
+- Documented metric definitions, interaction paths and verification limits in
+  `docs/projects-phase3.md`. No package, backend/database change, deployment,
+  real-data write or sample record was added.
+
+### Actual checks
+
+- `npm test`: 85 Vitest files and 545 tests passed, followed by successful
+  version-script and deployment-script checks. New UI/integration coverage uses
+  mocked HTTP/jsdom, not a live backend or browser.
+- `npm run build`: passed (3,103 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed with
+  no errors or warnings.
+- Live backend/cookie checks, real two-tab interaction and physical mobile visual
+  verification were not performed.
+
+## 2026-10-15 — V0.2 Phase 2 Focus execution workspace
+
+- Replaced read-only NOW with backend-recommended, active, paused and cross-Project
+  execution states; retained URL Task selection, NEXT and EXPLORE navigation.
+- Added typed, validated Focus adapters, focused TanStack Query keys, explicit
+  Start/Pause/Resume/Switch/Finish controls and server-saved stopping context.
+- Notes save only on Pause or Switch: the confirmed backend has no standalone
+  Save Note endpoint. No unsupported button, endpoint or DTO field was added.
+- Separated confirmed session finishing from manual free-text criteria
+  acknowledgement and Task review/done PATCH, including partial-success recovery.
+- Added stable-key retries for uncertain starts/switches, authoritative refetches,
+  stale-tab checks and explicit offline refusal. Focus writes refresh only Focus
+  and the shared Projects snapshot (including Gantt and backend Sprint velocity).
+- Preserved recovery UI across snapshot refresh failures. Owner changes now clear
+  private query data and remount private routes to discard previous-owner drafts.
+- Added mocked HTTP/jsdom journey, adapter, concurrency, failure, auth recovery and
+  isolation tests; adapted Phase 1 navigation tests to asynchronous Focus reads.
+- Documented backend race limits, missing standalone note saving/history lookup,
+  migration prerequisite and live-browser checks still needed in
+  `docs/projects-focus.md`. No packages, backend/database changes, real data
+  population, deployment or application-version change.
+
+### Actual checks
+
+- `npm test`: 82 Vitest files and 533 tests passed, followed by successful
+  version-script and deployment-script checks. Focus tests use mocked HTTP/jsdom,
+  not a live backend or browser.
+- `npm run build`: passed (3,098 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+- `graphify update .`: refreshed the AST/code graph (2,094 nodes, 4,318 edges,
+  106 communities). No documentation semantic re-extraction or LLM relabeling
+  was performed.
+
+## 2026-10-15 — V0.2 Phase 1 Project workspace foundation
+
+- Added owner-protected Project workspace routes with a base-route redirect to
+  NOW, URL-backed task/view selection, browser history and explicit unavailable
+  states for unknown/deleted Projects and invalid or cross-project Tasks.
+- Added Open project links while preserving `/projects`, existing `?tab=...`
+  links, global imports, cross-project editing and explicit deletion workflows.
+- Added read-only NOW task context and a bounded NEXT queue grouped by actual
+  status and priority. No recommendations, execution actions or persistent
+  sessions are claimed or implemented.
+- Reused existing management views/editors in EXPLORE. Route-derived scope
+  restricts displayed collections and editor choices without narrowing the
+  shared query cache or changing any API payload/endpoint. Existing mutation
+  invalidation refreshes workspace counts, tasks, Sprint progress and Gantt.
+- Added scoped overview, local monochrome styling, wrapping navigation/actions,
+  accessible task selection and keyboard-operable EXPLORE tabs. Shared dialogs
+  and existing semantic status colors retain their current styles.
+- Documented navigation, scope, workflow boundaries and the decisions required
+  before a later execution/session phase. No packages, backend/database changes,
+  live data writes, deployment or application-version change are included.
+
+### Actual checks
+
+- Added 33 mocked HTTP/jsdom workspace tests and four application-route cases.
+- `npm test`: 80 Vitest files and 498 tests passed, followed by successful
+  version-script and deployment-script checks.
+- `npx tsc -b --pretty false` and `npm run build`: passed (3,091 Vite modules).
+- `npm run lint`, `npm run prettier-check` and `git diff --check`: passed.
+- `graphify update .`: refreshed the AST/code graph (2,023 nodes, 4,112 edges).
+  Changed communities received deterministic hub names; no LLM relabeling or
+  documentation semantic re-extraction was performed.
+- No live backend/browser checks were performed. Responsive classes, link/tab
+  semantics and keyboard activation are covered in jsdom, not visual layout or
+  device-level interaction.
+
+## 2026-10-12 — Explicit Project deletion with contents
+
+- Preserved restrictive normal DELETE and added a separate Project-list action
+  for the supplied Backend 0.1.11 impact-preview/transactional-deletion contract.
+- Added typed API adapters with fail-closed response validation, backend-only
+  deletion/unlink counts, opaque blocking reasons, exact typed-name confirmation,
+  duplicate-submit protection, no optimistic deletion, and no mutation retries.
+- Kept the result dialog outside disappearing Project rows, showing actual POST
+  counts until acknowledged. Preserved input on recoverable errors, refreshed
+  impact on 409, refreshed Projects on 404, and retained global auth handling.
+- Scoped success invalidation to Projects/repositories, Learning (preserved but
+  unlinked records), Dashboard, Intelligence, and Horizon milestone projections.
+- Documented the two delete paths and navigation: there is no Project detail
+  route; the existing list remains and its URL-filter logic removes stale IDs.
+- Added mocked transport/dialog coverage and retained existing editing,
+  repository, and import behavior. No packages, backend changes, live data
+  deletion, or deployment are included.
+
+### Actual checks
+
+- New deletion coverage: 47 mocked HTTP/jsdom tests. Focused Projects regression
+  run: 7 files and 116 tests passed.
+- `npm test`: 79 Vitest files and 461 tests passed, followed by successful
+  version-script and deployment-script checks.
+- `npm run build`, `npm run lint`, `npm run prettier-check`, and
+  `git diff --check`: passed.
+- Live backend deletion and real-browser/mobile verification were not performed.
+
+## 2026-10-04 — Learning planning import
+
+- Added a JSON-first Learning planning importer for Goals, recurring weekly
+  schedules, and milestones. It supports canonical full packages and selected
+  single-resource arrays, local parsing, a complete validation preview, and
+  downloadable realistic templates.
+- Added deterministic package `import_key`, existing Goal ID/title, and
+  existing Project ID/name resolution. The browser sends only canonical backend
+  references and writable fields while preserving null versus omitted values,
+  zero planned minutes, and false active state.
+- Added one server-confirmed atomic `POST /learning/import` flow with
+  `duplicate_policy: "reject"`, retained failed previews, structured row error
+  mapping, explicit 409/413/422/network guidance, confirmed result counts, and
+  Learning-prefix query invalidation.
+- CSV and all evidence/resource imports remain deferred. No package or package
+  version was added or changed.
+
+### Actual checks
+
+- Focused Learning import/API/page suite: 4 Vitest files and 32 tests passed
+  (mocked HTTP/jsdom).
+- `npm test`: 77 Vitest files and 414 tests passed, followed by all four
+  version-script tests and all four deployment tests.
+- `npx tsc -b --pretty false`, `npm run lint`,
+  `npm run prettier-check`, and `git diff --check`: passed.
+- `npm run build`: TypeScript and the production Vite build passed; 3,085
+  modules were transformed.
+- `graphify update .`: refreshed the code graph successfully.
+- No live backend import or browser verification was performed; no user data was
+  created or changed.
+
 ## 2026-09-27 — Finance workflow and application time zone
 
 - Made Transactions the first/default Finance view and moved the complete,

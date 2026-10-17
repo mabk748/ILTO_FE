@@ -1,0 +1,18 @@
+/* Local workspace palette. Existing app theme and semantic status colors remain. */
+.project-workspace {
+  --primary: oklch(0.92 0 0);
+  --primary-foreground: oklch(0.18 0 0);
+  --ring: oklch(0.75 0 0);
+  --background: oklch(0.16 0 0);
+  --card: oklch(0.2 0 0);
+  --muted: oklch(0.25 0 0);
+  --muted-foreground: oklch(0.73 0 0);
+  --accent: oklch(0.28 0 0);
+  --border: oklch(0.35 0 0);
+  background: var(--background);
+}
+
+.project-workspace :is(a, button, select, input, textarea):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}

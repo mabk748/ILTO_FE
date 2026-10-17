@@ -4,6 +4,11 @@ This is the frontend's initial contract for the backend to be implemented in a
 separate repository. It is a proposal, not a description of a deployed service.
 No backend code, authentication server, or automation evaluator is implemented here.
 
+Exception to the original proposal status: the V0.2 Focus execution adapters use
+confirmed backend 0.1.13 contracts. See [Projects Focus](projects-focus.md) for
+the endpoint/payload table, state transitions and explicit backend limitations.
+Live deployment availability has not been verified by this frontend change.
+
 ## Connection and migration
 
 The saved Settings API URL takes priority over `VITE_API_BASE_URL`.
@@ -16,6 +21,28 @@ Saving a different URL creates a fresh query cache and remounts the data views.
 Old reads are cancelled through AbortSignal and cannot populate the new cache.
 Changing domain visibility alone keeps the existing cache.
 Requests already sent to a server, especially writes, cannot be undone by switching URLs.
+
+## Horizon coordination view
+
+Horizon is a normalized calendar projection; Projects, Work, and Logistics
+remain the owners of their projected records. The frontend expects:
+
+- `GET /horizon/entries?from=<ISO instant>&to=<ISO instant>` returning a plain
+  `HorizonEntry[]` for the inclusive visible interval. Each entry has `id`,
+  `title`, `starts_at`, nullable `ends_at`, `all_day`, `source_domain`,
+  `source_type`, `source_id`, `horizon_owned`, nullable `detail`, and nullable
+  `status`.
+- `POST /horizon/items` returning the saved standalone `HorizonItem` with HTTP 201.
+- `PATCH /horizon/items/:id` returning the saved standalone item with HTTP 200.
+- `DELETE /horizon/items/:id` returning HTTP 204 with no body.
+
+Standalone writable fields are exactly `title`, `starts_at`, nullable `ends_at`,
+`all_day`, and nullable `description`. IDs and audit timestamps are server-owned.
+Domain-backed normalized entries are read-only through Horizon and must retain
+their owning domain's user isolation and deletion behavior. The current unified
+projection includes Horizon items, Project milestones, Work deadlines, and
+Logistics events. Project milestone calendar dates are rendered from the UTC
+date component without shifting the day for the user's time zone.
 
 A missing base URL produces a configuration error without a request. An offline
 backend produces a network error; an unimplemented route produces an HTTP error.
@@ -44,6 +71,13 @@ There is no demo data fallback. Successful empty collections must return `[]`.
   cards whose next_review is at or before the current server time.
 - Frontend collection adapters check the array/pagination envelope. Entity fields are
   currently trusted TypeScript contracts; full schema validation remains future work.
+
+The pending richer Projects contract adds required task `category` and nullable
+`acceptance_criteria` fields plus one atomic `POST /projects/import` endpoint.
+The deployed Projects backend does not provide these yet. The frontend keeps
+reading older tasks by displaying a missing category as `other`, but task writes
+and imports require the coordinated backend migration described in
+[the Projects backend handoff](projects-backend-implementation-prompt.md).
 
 The DTO definitions are in `src/lib/api/types.ts`, with notification, trigger, and
 comparison types in their matching API modules. Each implemented CRUD group exports
@@ -96,25 +130,40 @@ See [Projects integration](projects-integration.md) for implementation and test 
 
 ### projects
 
-| Method | Path                       | Frontend function | Response                     |
-| ------ | -------------------------- | ----------------- | ---------------------------- |
-| GET    | `/projects`                | `getProjects`     | `PaginatedResponse<Project>` |
-| GET    | `/projects/:id`            | `getProject`      | `Project \| null`            |
-| GET    | `/projects/sprints`        | `getSprints`      | `Sprint[]`                   |
-| GET    | `/projects/tasks`          | `getTasks`        | `Task[]`                     |
-| GET    | `/projects/milestones`     | `getMilestones`   | `Milestone[]`                |
-| POST   | `/projects`                | `createProject`   | `Project`                    |
-| PATCH  | `/projects/:id`            | `updateProject`   | `Project`                    |
-| DELETE | `/projects/:id`            | `deleteProject`   | `204 (no body)`              |
-| POST   | `/projects/sprints`        | `createSprint`    | `Sprint`                     |
-| PATCH  | `/projects/sprints/:id`    | `updateSprint`    | `Sprint`                     |
-| DELETE | `/projects/sprints/:id`    | `deleteSprint`    | `204 (no body)`              |
-| POST   | `/projects/tasks`          | `createTask`      | `Task`                       |
-| PATCH  | `/projects/tasks/:id`      | `updateTask`      | `Task`                       |
-| DELETE | `/projects/tasks/:id`      | `deleteTask`      | `204 (no body)`              |
-| POST   | `/projects/milestones`     | `createMilestone` | `Milestone`                  |
-| PATCH  | `/projects/milestones/:id` | `updateMilestone` | `Milestone`                  |
-| DELETE | `/projects/milestones/:id` | `deleteMilestone` | `204 (no body)`              |
+The explicit Backend 0.1.16 deletion workflow is separate from restrictive
+`DELETE /projects/:id`. `GET /projects/:id/delete-impact` returns
+`ProjectDeleteImpact` (200), including FocusSession status counts and an opaque
+64-character lowercase-hex `confirmation_token`; `POST
+/projects/:id/delete-with-contents` accepts `{confirm_name: string,
+confirmation_token: string}` and returns `ProjectDeleteResult` (200). Exact name
+matching includes case and whitespace. Active/paused FocusSessions block the
+explicit delete; finished FocusSession history is deleted on success. Counts,
+blockers, transaction behavior, and final deleted/unlinked results belong to the
+backend. See the
+[deletion UX and error contract](projects-integration.md#normal-delete-versus-delete-project-and-contents).
+
+| Method | Path                                 | Frontend function           | Response                     |
+| ------ | ------------------------------------ | --------------------------- | ---------------------------- |
+| GET    | `/projects`                          | `getProjects`               | `PaginatedResponse<Project>` |
+| GET    | `/projects/:id`                      | `getProject`                | `Project \| null`            |
+| GET    | `/projects/sprints`                  | `getSprints`                | `Sprint[]`                   |
+| GET    | `/projects/tasks`                    | `getTasks`                  | `Task[]`                     |
+| GET    | `/projects/milestones`               | `getMilestones`             | `Milestone[]`                |
+| POST   | `/projects`                          | `createProject`             | `Project`                    |
+| PATCH  | `/projects/:id`                      | `updateProject`             | `Project`                    |
+| DELETE | `/projects/:id`                      | `deleteProject`             | `204 (no body)`              |
+| GET    | `/projects/:id/delete-impact`        | `getProjectDeleteImpact`    | `ProjectDeleteImpact`        |
+| POST   | `/projects/:id/delete-with-contents` | `deleteProjectWithContents` | `ProjectDeleteResult`        |
+| POST   | `/projects/sprints`                  | `createSprint`              | `Sprint`                     |
+| PATCH  | `/projects/sprints/:id`              | `updateSprint`              | `Sprint`                     |
+| DELETE | `/projects/sprints/:id`              | `deleteSprint`              | `204 (no body)`              |
+| POST   | `/projects/tasks`                    | `createTask`                | `Task`                       |
+| PATCH  | `/projects/tasks/:id`                | `updateTask`                | `Task`                       |
+| DELETE | `/projects/tasks/:id`                | `deleteTask`                | `204 (no body)`              |
+| POST   | `/projects/milestones`               | `createMilestone`           | `Milestone`                  |
+| PATCH  | `/projects/milestones/:id`           | `updateMilestone`           | `Milestone`                  |
+| DELETE | `/projects/milestones/:id`           | `deleteMilestone`           | `204 (no body)`              |
+| POST   | `/projects/import`                   | `importProjects`            | `ProjectImportResult`        |
 
 ### infrastructure
 
@@ -194,6 +243,12 @@ that setting locally until the endpoint exists.
 | PATCH  | `/learning/reading/:id`          | `updateReadingEntry` | `ReadingEntry`           |
 | DELETE | `/learning/reading/:id`          | `deleteReadingEntry` | `204 (no body)`          |
 | POST   | `/learning/sr-cards/:id/reviews` | `reviewCard`         | `SpacedRepetitionCard`   |
+| POST   | `/learning/import`               | `importLearningPlan` | `LearningImportResult`   |
+
+The atomic Learning planning importer accepts Goals, weekly schedules, and
+milestones only. Its exact human-file transformation, reference rules, limits,
+duplicate behavior, and query refresh are documented in
+[Learning planning import](learning-import.md).
 
 ### work
 

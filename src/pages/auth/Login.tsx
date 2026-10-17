@@ -18,7 +18,7 @@ export default function LoginPage() {
     !from.startsWith("/login") &&
     from !== "/"
       ? from
-      : "/projects";
+      : "/horizon";
   if (status === "authenticated") return <Navigate to={destination} replace />;
   const busy =
     status === "checking" ||

@@ -406,6 +406,69 @@ export type CreateWeeklyReviewInput = Pick<
 >;
 export type UpdateWeeklyReviewInput = Partial<CreateWeeklyReviewInput>;
 
+export type LearningImportResource = "goals" | "schedules" | "milestones";
+
+export interface LearningImportGoalReference {
+  kind: "id" | "import_key";
+  value: string;
+}
+
+export type LearningImportGoalInput = Omit<
+  CreateLearningGoalInput,
+  "target_date" | "exam_date" | "phase" | "linked_project_id"
+> & {
+  import_key?: string;
+  target_date?: LearningGoal["target_date"];
+  exam_date?: LearningGoal["exam_date"];
+  phase?: LearningGoal["phase"];
+  linked_project_id?: LearningGoal["linked_project_id"];
+};
+
+export interface LearningImportScheduleInput {
+  goal_ref: LearningImportGoalReference;
+  weekday: StudySchedule["weekday"];
+  session_type: StudySchedule["session_type"];
+  planned_minutes: StudySchedule["planned_minutes"];
+  topic: StudySchedule["topic"];
+  notes?: StudySchedule["notes"];
+  start_date: StudySchedule["start_date"];
+  end_date?: StudySchedule["end_date"];
+  active?: StudySchedule["active"];
+  linked_project_id?: StudySchedule["linked_project_id"];
+}
+
+export interface LearningImportMilestoneInput {
+  goal_ref: LearningImportGoalReference;
+  title: LearningMilestone["title"];
+  target_date: LearningMilestone["target_date"];
+  status?: "planned";
+}
+
+export interface LearningImportRequest {
+  duplicate_policy: "reject";
+  resources: {
+    goals: LearningImportGoalInput[];
+    schedules: LearningImportScheduleInput[];
+    milestones: LearningImportMilestoneInput[];
+  };
+}
+
+export interface LearningImportWarning {
+  resource: LearningImportResource;
+  row: number;
+  field: string | null;
+  code: string;
+  message: string;
+}
+
+export interface LearningImportResult {
+  status: "completed";
+  created: Record<LearningImportResource, number>;
+  skipped: 0;
+  failed: 0;
+  warnings: LearningImportWarning[];
+}
+
 function pickPresent<T extends object>(
   input: T,
   fields: readonly (keyof T)[],
@@ -514,6 +577,71 @@ const REVIEW_FIELDS = [
   "next_week_focus",
   "notes",
 ] as const satisfies readonly (keyof CreateWeeklyReviewInput)[];
+
+const IMPORT_GOAL_FIELDS = [
+  "import_key",
+  ...GOAL_FIELDS,
+] as const satisfies readonly (keyof LearningImportGoalInput)[];
+
+const IMPORT_SCHEDULE_FIELDS = [
+  "goal_ref",
+  "weekday",
+  "session_type",
+  "planned_minutes",
+  "topic",
+  "notes",
+  "start_date",
+  "end_date",
+  "active",
+  "linked_project_id",
+] as const satisfies readonly (keyof LearningImportScheduleInput)[];
+
+const IMPORT_MILESTONE_FIELDS = [
+  "goal_ref",
+  "title",
+  "target_date",
+  "status",
+] as const satisfies readonly (keyof LearningImportMilestoneInput)[];
+
+function importGoalReference(
+  reference: LearningImportGoalReference,
+): LearningImportGoalReference {
+  return { kind: reference.kind, value: reference.value };
+}
+
+export function importLearningPlan(
+  input: LearningImportRequest,
+  options: ApiRequestOptions = {},
+): Promise<LearningImportResult> {
+  const payload: LearningImportRequest = {
+    duplicate_policy: "reject",
+    resources: {
+      goals: input.resources.goals.map(
+        (row) =>
+          pickPresent(row, IMPORT_GOAL_FIELDS) as LearningImportGoalInput,
+      ),
+      schedules: input.resources.schedules.map((row) => ({
+        ...(pickPresent(
+          row,
+          IMPORT_SCHEDULE_FIELDS,
+        ) as LearningImportScheduleInput),
+        goal_ref: importGoalReference(row.goal_ref),
+      })),
+      milestones: input.resources.milestones.map((row) => ({
+        ...(pickPresent(
+          row,
+          IMPORT_MILESTONE_FIELDS,
+        ) as LearningImportMilestoneInput),
+        goal_ref: importGoalReference(row.goal_ref),
+      })),
+    },
+  };
+  return apiClient.post<LearningImportResult>(
+    "/learning/import",
+    payload,
+    options,
+  );
+}
 
 export function createLearningGoal(
   input: CreateLearningGoalInput,

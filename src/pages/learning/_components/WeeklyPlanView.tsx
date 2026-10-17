@@ -77,11 +77,13 @@ export default function WeeklyPlanView({
   sessions,
   goals,
   projects,
+  autoCreate = false,
 }: {
   schedules: readonly StudySchedule[];
   sessions: readonly StudySession[];
   goals: readonly LearningGoal[];
   projects: readonly Project[];
+  autoCreate?: boolean;
 }) {
   const timeZone = useTimeZone();
   const days = currentWeekDays(new Date(), timeZone);
@@ -119,6 +121,7 @@ export default function WeeklyPlanView({
             goals={goals}
             projects={projects}
             label="Plan one-off session"
+            autoOpen={autoCreate}
           />
         </div>
       </div>

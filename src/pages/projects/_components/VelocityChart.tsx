@@ -25,12 +25,12 @@ export default function VelocityChart({ sprints }: Props) {
         data={data}
         margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
       >
-        <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0.04 265)" />
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         <XAxis
           dataKey="name"
-          tick={{ fontSize: 11, fill: "oklch(0.60 0.05 265)" }}
+          tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
         />
-        <YAxis tick={{ fontSize: 11, fill: "oklch(0.60 0.05 265)" }} />
+        <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} />
         <Tooltip
           contentStyle={{
             background: "var(--card)",
@@ -42,9 +42,9 @@ export default function VelocityChart({ sprints }: Props) {
         <Line
           type="monotone"
           dataKey="velocity"
-          stroke="#6366f1"
+          stroke="var(--foreground)"
           strokeWidth={2}
-          dot={{ r: 4, fill: "#6366f1" }}
+          dot={{ r: 4, fill: "var(--foreground)" }}
           activeDot={{ r: 5 }}
         />
       </LineChart>

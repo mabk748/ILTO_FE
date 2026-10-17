@@ -6,6 +6,7 @@ import {
   getDueCards,
   getLearningDashboard,
   getLearningGoals,
+  getLearningMilestones,
   getReadingList,
   getRoadmaps,
   getSkills,
@@ -31,9 +32,16 @@ import BottleneckView from "./_components/BottleneckView.tsx";
 import AssessmentsView from "./_components/AssessmentsView.tsx";
 import WeeklyReviewsView from "./_components/WeeklyReviewsView.tsx";
 import PhaseRoadmapView from "./_components/PhaseRoadmapView.tsx";
+import LearningImportDialog from "./_components/LearningImportDialog.tsx";
 import { learningQueryKeys } from "./learning-query-keys.ts";
+import { useSearchParams } from "react-router-dom";
 
 export default function LearningPage() {
+  const [searchParams] = useSearchParams();
+  const createSession = searchParams.get("create") === "session";
+  const requestedTab = searchParams.get("tab");
+  const defaultTab =
+    requestedTab === "week" || createSession ? "week" : "dashboard";
   const dashboard = useQuery({
     queryKey: learningQueryKeys.dashboard,
     queryFn: ({ signal }) => getLearningDashboard({ signal }),
@@ -49,6 +57,10 @@ export default function LearningPage() {
   const schedules = useQuery({
     queryKey: learningQueryKeys.schedules,
     queryFn: ({ signal }) => getStudySchedules(undefined, { signal }),
+  });
+  const milestones = useQuery({
+    queryKey: learningQueryKeys.milestones,
+    queryFn: ({ signal }) => getLearningMilestones(undefined, { signal }),
   });
   const assessments = useQuery({
     queryKey: learningQueryKeys.assessments,
@@ -85,6 +97,7 @@ export default function LearningPage() {
     dashboard,
     goals,
     schedules,
+    milestones,
     sessions,
     assessments,
     bottlenecks,
@@ -119,6 +132,20 @@ export default function LearningPage() {
             </p>
           </div>
         </div>
+        <LearningImportDialog
+          goals={goals.data ?? []}
+          schedules={schedules.data ?? []}
+          milestones={milestones.data ?? []}
+          projects={projects.data?.projects ?? []}
+          disabled={
+            loading ||
+            Boolean(error) ||
+            !goals.data ||
+            !schedules.data ||
+            !milestones.data ||
+            !projects.data
+          }
+        />
       </div>
 
       {error ? (
@@ -127,6 +154,7 @@ export default function LearningPage() {
         !dashboard.data ||
         !goals.data ||
         !schedules.data ||
+        !milestones.data ||
         !sessions.data ||
         !assessments.data ||
         !bottlenecks.data ||
@@ -145,7 +173,7 @@ export default function LearningPage() {
           <Skeleton className="h-64 w-full" />
         </div>
       ) : (
-        <Tabs defaultValue="dashboard">
+        <Tabs defaultValue={defaultTab}>
           <TabsList
             className="h-auto w-full justify-start overflow-x-auto"
             variant="line"
@@ -174,6 +202,7 @@ export default function LearningPage() {
               sessions={sessions.data}
               goals={goals.data}
               projects={projects.data.projects}
+              autoCreate={createSession}
             />
           </TabsContent>
           <TabsContent value="bottlenecks" className="mt-5">

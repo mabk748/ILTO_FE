@@ -90,6 +90,7 @@ describe("Learning skill refresh", () => {
         url.endsWith("/learning/study-sessions") ||
         url.endsWith("/learning/assessments") ||
         url.endsWith("/learning/bottlenecks") ||
+        url.endsWith("/learning/milestones") ||
         url.endsWith("/learning/weekly-reviews") ||
         url.endsWith("/projects/sprints") ||
         url.endsWith("/projects/tasks") ||

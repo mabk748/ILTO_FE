@@ -13,6 +13,7 @@ import { formatInstant } from "@/lib/time-zone.ts";
 
 interface Props {
   deadlines: WorkDeadline[];
+  autoCreate?: boolean;
 }
 
 const PRIORITY_STYLES: Record<Priority, string> = {
@@ -87,7 +88,10 @@ function DeadlineCompletionControl({ deadline }: { deadline: WorkDeadline }) {
   );
 }
 
-export default function DeadlineQueue({ deadlines }: Props) {
+export default function DeadlineQueue({
+  deadlines,
+  autoCreate = false,
+}: Props) {
   const timeZone = useTimeZone();
   // The API returns due-date order; this view intentionally promotes priority,
   // retaining due date as the deterministic secondary ordering.
@@ -107,7 +111,10 @@ export default function DeadlineQueue({ deadlines }: Props) {
             Priorities are shown first, then the backend due-date order.
           </p>
         </div>
-        <WorkResourceControls target={{ kind: "deadline" }} />
+        <WorkResourceControls
+          target={{ kind: "deadline" }}
+          autoOpen={autoCreate}
+        />
       </div>
       {sorted.length === 0 && (
         <Card>

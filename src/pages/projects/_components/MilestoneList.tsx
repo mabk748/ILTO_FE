@@ -1,4 +1,4 @@
-import { useProjectsData } from "../projects-data.ts";
+import { useProjectsViewData } from "../projects-data.ts";
 import ResourceControls from "./ResourceControls.tsx";
 import type { Milestone, Project } from "@/lib/api/types.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -16,12 +16,19 @@ import {
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
 import { CheckCircle2, Circle, CalendarDays, FolderKanban } from "lucide-react";
+import { useProjectsFilters } from "../project-filters.ts";
+import {
+  FilteredEmptyState,
+  ProjectFilterBar,
+  ProjectScopeFilter,
+} from "./ProjectFilterBar.tsx";
 
+const MILESTONE_FILTER_KEYS = ["project", "milestone"] as const;
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-primary/20 text-primary border-primary/30",
   planning: "bg-muted text-muted-foreground border-border",
-  on_hold: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  completed: "bg-green-500/20 text-green-400 border-green-500/30",
+  on_hold: "bg-muted text-muted-foreground border-border",
+  completed: "bg-foreground/10 text-foreground border-foreground/30",
   archived: "bg-muted text-muted-foreground border-border",
 };
 
@@ -39,7 +46,7 @@ function MilestoneRow({
     <div className="flex gap-4 items-start border-b border-border last:border-0 py-4">
       <div className="shrink-0 mt-0.5">
         {isDone ? (
-          <CheckCircle2 className="h-5 w-5 text-green-500" />
+          <CheckCircle2 className="h-5 w-5 text-foreground" />
         ) : (
           <Circle
             className={cn(
@@ -108,7 +115,7 @@ function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
                 className={cn(
                   "w-3 h-3 rounded-full border-2",
                   isDone
-                    ? "bg-green-500 border-green-500"
+                    ? "bg-foreground border-foreground"
                     : overdue
                       ? "bg-destructive border-destructive"
                       : "bg-background border-primary",
@@ -129,7 +136,9 @@ function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
 }
 
 export default function MilestoneList() {
-  const { data, error, isPending: loading, refetch } = useProjectsData();
+  const { data, error, isPending: loading, refetch } = useProjectsViewData();
+  const filterState = useProjectsFilters(data);
+  const { filters } = filterState;
 
   if (loading) {
     return (
@@ -148,67 +157,112 @@ export default function MilestoneList() {
     return <LoadError error={error} onRetry={() => void refetch()} />;
   }
 
-  const milestones = data?.milestones ?? [];
+  const allMilestones = data?.milestones ?? [];
   const projects = data?.projects ?? [];
+  const projectScope = new Set(filters.projectIds);
+  const milestoneScope = new Set(filters.milestoneIds);
+  const milestones = allMilestones.filter(
+    (milestone) =>
+      (filters.projectIds.length === 0 ||
+        projectScope.has(milestone.project_id)) &&
+      (filters.milestoneIds.length === 0 || milestoneScope.has(milestone.id)),
+  );
+  const visibleProjects = projects.filter(
+    (project) =>
+      filters.projectIds.length === 0 || projectScope.has(project.id),
+  );
 
   const projectMap = new Map(projects.map((p) => [p.id, p]));
+  const activeLabels = [
+    filters.projectIds.length ? `Projects: ${filters.projectIds.length}` : null,
+    filters.milestoneIds.length
+      ? `Milestones: ${filters.milestoneIds.length}`
+      : null,
+  ].filter((value): value is string => value !== null);
+  const clearFilters = () => filterState.clear(MILESTONE_FILTER_KEYS);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 space-y-4">
-        <Card>
-          <CardHeader className="pb-0">
-            <CardTitle className="text-sm font-semibold">Timeline</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MilestoneTimeline milestones={milestones} />
-          </CardContent>
-        </Card>
+    <div className="space-y-4">
+      <ProjectFilterBar
+        total={allMilestones.length}
+        shown={milestones.length}
+        noun="milestone"
+        activeLabels={activeLabels}
+        onClear={clearFilters}
+      >
+        <ProjectScopeFilter
+          label="Filter milestones by project"
+          allLabel="All projects"
+          values={filters.projectIds}
+          options={projects.map((project) => ({
+            value: project.id,
+            label: project.name,
+          }))}
+          onChange={filterState.setProjectIds}
+        />
+      </ProjectFilterBar>
+      {allMilestones.length > 0 && milestones.length === 0 ? (
+        <FilteredEmptyState noun="milestones" onClear={clearFilters} />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <Card>
+              <CardHeader className="pb-0">
+                <CardTitle className="text-sm font-semibold">
+                  Timeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MilestoneTimeline milestones={milestones} />
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardContent className="pt-4 divide-y divide-border">
-            {milestones.length === 0 && (
-              <p className="py-4 text-sm">No milestones yet.</p>
-            )}
-            {milestones.map((m) => (
-              <MilestoneRow
-                key={m.id}
-                milestone={m}
-                project={projectMap.get(m.project_id)}
-              />
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+            <Card>
+              <CardContent className="pt-4 divide-y divide-border">
+                {allMilestones.length === 0 && (
+                  <p className="py-4 text-sm">No milestones yet.</p>
+                )}
+                {milestones.map((m) => (
+                  <MilestoneRow
+                    key={m.id}
+                    milestone={m}
+                    project={projectMap.get(m.project_id)}
+                  />
+                ))}
+              </CardContent>
+            </Card>
+          </div>
 
-      <div>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <FolderKanban className="h-4 w-4 text-primary" />
-              Projects
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {projects.map((p) => (
-              <div
-                key={p.id}
-                className="flex items-center justify-between gap-2"
-              >
-                <span className="text-sm truncate">{p.name}</span>
-                <span
-                  className={cn(
-                    "text-[10px] px-1.5 py-0.5 rounded border font-semibold uppercase shrink-0",
-                    STATUS_COLOR[p.status],
-                  )}
-                >
-                  {p.status.replace("_", " ")}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
+          <div>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <FolderKanban className="h-4 w-4 text-primary" />
+                  Projects
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {visibleProjects.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <span className="text-sm truncate">{p.name}</span>
+                    <span
+                      className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded border font-semibold uppercase shrink-0",
+                        STATUS_COLOR[p.status],
+                      )}
+                    >
+                      {p.status.replace("_", " ")}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

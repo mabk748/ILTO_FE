@@ -22,6 +22,7 @@ import {
   getSkills,
   getStudySchedules,
   getStudySessions,
+  importLearningPlan,
   planStudySchedule,
   reviewCard,
   resolveBottleneck,
@@ -261,6 +262,118 @@ describe("learning backend adapter", () => {
       "https://api.example.test/api/v1/learning/study-schedules?learning_goal_id=goal-1",
       "https://api.example.test/api/v1/learning/study-sessions?learning_goal_id=goal-1",
     ]);
+  });
+
+  it("posts an exact Learning import body and strips unknown fields at every row/reference level", async () => {
+    const saved = {
+      status: "completed",
+      created: { goals: 1, schedules: 1, milestones: 1 },
+      skipped: 0,
+      failed: 0,
+      warnings: [],
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(Response.json(saved, { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      importLearningPlan({
+        duplicate_policy: "merge",
+        resources: {
+          goals: [
+            {
+              import_key: "aws-saa",
+              title: "AWS SAA",
+              provider: "AWS",
+              type: "certification",
+              status: "active",
+              start_date: "2026-10-05",
+              target_date: null,
+              description: "Prepare",
+              priority: "high",
+              id: "server-owned",
+            },
+          ],
+          schedules: [
+            {
+              goal_ref: {
+                kind: "import_key",
+                value: "aws-saa",
+                extra: "drop-me",
+              },
+              weekday: 4,
+              session_type: "study",
+              planned_minutes: 0,
+              topic: "Deep study",
+              start_date: "2026-10-05",
+              end_date: null,
+              active: false,
+              id: "server-owned",
+            },
+          ],
+          milestones: [
+            {
+              goal_ref: {
+                kind: "import_key",
+                value: "aws-saa",
+                extra: "drop-me",
+              },
+              title: "First mock exam",
+              target_date: "2026-11-01",
+              status: "planned",
+              completed_at: null,
+            },
+          ],
+        },
+      } as unknown as Parameters<typeof importLearningPlan>[0]),
+    ).resolves.toEqual(saved);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.example.test/api/v1/learning/import",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+        body: JSON.stringify({
+          duplicate_policy: "reject",
+          resources: {
+            goals: [
+              {
+                import_key: "aws-saa",
+                title: "AWS SAA",
+                provider: "AWS",
+                type: "certification",
+                status: "active",
+                start_date: "2026-10-05",
+                target_date: null,
+                description: "Prepare",
+                priority: "high",
+              },
+            ],
+            schedules: [
+              {
+                goal_ref: { kind: "import_key", value: "aws-saa" },
+                weekday: 4,
+                session_type: "study",
+                planned_minutes: 0,
+                topic: "Deep study",
+                start_date: "2026-10-05",
+                end_date: null,
+                active: false,
+              },
+            ],
+            milestones: [
+              {
+                goal_ref: { kind: "import_key", value: "aws-saa" },
+                title: "First mock exam",
+                target_date: "2026-11-01",
+                status: "planned",
+              },
+            ],
+          },
+        }),
+      }),
+    );
   });
 
   it("uses exact learning-goal payloads and strips server-owned fields", async () => {

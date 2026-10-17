@@ -2,9 +2,9 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useOwnerAuth } from "@/components/providers/owner-auth-context.ts";
 
 export default function RequireOwner() {
-  const { status } = useOwnerAuth();
+  const { status, owner } = useOwnerAuth();
   const location = useLocation();
-  if (status === "authenticated") return <Outlet />;
+  if (status === "authenticated") return <Outlet key={owner?.username} />;
   // The login screen also shows checking, errors, and logout retry states.
   return (
     <Navigate

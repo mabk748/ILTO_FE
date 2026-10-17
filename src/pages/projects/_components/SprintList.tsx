@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useProjectsData } from "../projects-data.ts";
+import { useProjectsViewData } from "../projects-data.ts";
 import ResourceControls from "./ResourceControls.tsx";
 import type { Sprint, Task, SprintStatus } from "@/lib/api/types.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
@@ -15,11 +15,19 @@ import { cn } from "@/lib/utils.ts";
 import { ChevronDown, ChevronRight, Zap } from "lucide-react";
 import VelocityChart from "./VelocityChart.tsx";
 import LoadError from "@/components/LoadError.tsx";
+import { useProjectsFilters } from "../project-filters.ts";
+import {
+  FilterSelect,
+  FilteredEmptyState,
+  ProjectFilterBar,
+  ProjectScopeFilter,
+} from "./ProjectFilterBar.tsx";
 
+const SPRINT_FILTER_KEYS = ["project", "sprint_status"] as const;
 const STATUS_CLASSES: Record<SprintStatus, string> = {
   planned: "bg-muted text-muted-foreground border-border",
   active: "bg-primary/20 text-primary border-primary/30",
-  completed: "bg-green-500/20 text-green-400 border-green-500/30",
+  completed: "bg-foreground/10 text-foreground border-foreground/30",
 };
 
 interface SprintWithTasks extends Sprint {
@@ -89,7 +97,11 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
           </span>
           <span>{progress}%</span>
         </div>
-        <Progress value={progress} className="h-1.5" />
+        <Progress
+          value={progress}
+          aria-label={`${sprint.name} story points completed`}
+          className="h-1.5"
+        />
       </div>
 
       {expanded && sprint.tasks.length > 0 && (
@@ -119,8 +131,10 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
 }
 
 export default function SprintList() {
-  const { data, error, isPending: loading, refetch } = useProjectsData();
-  const sprints: SprintWithTasks[] = (data?.sprints ?? []).map((sprint) => {
+  const { data, error, isPending: loading, refetch } = useProjectsViewData();
+  const filterState = useProjectsFilters(data);
+  const { filters } = filterState;
+  const allSprints: SprintWithTasks[] = (data?.sprints ?? []).map((sprint) => {
     const tasks = (data?.tasks ?? []).filter(
       (task) => task.sprint_id === sprint.id,
     );
@@ -133,6 +147,13 @@ export default function SprintList() {
       pointsTotal: tasks.reduce((sum, task) => sum + task.story_points, 0),
     };
   });
+  const projectScope = new Set(filters.projectIds);
+  const sprints = allSprints.filter(
+    (sprint) =>
+      (filters.projectIds.length === 0 ||
+        projectScope.has(sprint.project_id)) &&
+      (!filters.sprintStatus || sprint.status === filters.sprintStatus),
+  );
 
   if (loading) {
     return (
@@ -148,12 +169,59 @@ export default function SprintList() {
     return <LoadError error={error} onRetry={() => void refetch()} />;
   }
 
+  const projects = data?.projects ?? [];
+  const projectsById = new Map(
+    projects.map((project) => [project.id, project.name]),
+  );
+  const activeLabels = [
+    filters.projectIds.length ? `Projects: ${filters.projectIds.length}` : null,
+    filters.sprintStatus ? `Status: ${filters.sprintStatus}` : null,
+  ].filter((value): value is string => value !== null);
+  const clearFilters = () => filterState.clear(SPRINT_FILTER_KEYS);
+
   return (
     <div className="space-y-6">
+      <ProjectFilterBar
+        total={allSprints.length}
+        shown={sprints.length}
+        noun="sprint"
+        activeLabels={activeLabels}
+        onClear={clearFilters}
+      >
+        <ProjectScopeFilter
+          label="Filter sprints by project"
+          allLabel="All projects"
+          values={filters.projectIds}
+          options={projects.map((project) => ({
+            value: project.id,
+            label: project.name,
+          }))}
+          onChange={filterState.setProjectIds}
+        />
+        <FilterSelect
+          label="Filter sprints by status"
+          allLabel="All statuses"
+          value={filters.sprintStatus}
+          options={[
+            { value: "planned", label: "Planned" },
+            { value: "active", label: "Active" },
+            { value: "completed", label: "Completed" },
+          ]}
+          onChange={(value) => filterState.setSingle("sprint_status", value)}
+        />
+      </ProjectFilterBar>
       <div className="space-y-3">
-        {sprints.length === 0 && <p>No sprints yet.</p>}
+        {allSprints.length === 0 && <p>No sprints yet.</p>}
+        {allSprints.length > 0 && sprints.length === 0 && (
+          <FilteredEmptyState noun="sprints" onClear={clearFilters} />
+        )}
         {sprints.map((s) => (
-          <SprintRow key={s.id} sprint={s} />
+          <div key={s.id} className="space-y-1">
+            <p className="px-1 text-xs text-muted-foreground">
+              Project: {projectsById.get(s.project_id) ?? "Project unavailable"}
+            </p>
+            <SprintRow sprint={s} />
+          </div>
         ))}
       </div>
 

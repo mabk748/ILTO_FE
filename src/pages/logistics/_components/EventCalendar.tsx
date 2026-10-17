@@ -50,9 +50,14 @@ function getTimeBucket(date: Date): string {
 interface Props {
   events: LogisticsEvent[];
   trips: Trip[];
+  autoCreate?: boolean;
 }
 
-export default function EventCalendar({ events, trips }: Props) {
+export default function EventCalendar({
+  events,
+  trips,
+  autoCreate = false,
+}: Props) {
   const timeZone = useTimeZone();
   const buckets: Record<string, LogisticsEvent[]> = {};
   for (const e of [...events].sort(
@@ -69,7 +74,11 @@ export default function EventCalendar({ events, trips }: Props) {
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-foreground">Events</h2>
-        <LogisticsResourceControls target={{ kind: "event" }} trips={trips} />
+        <LogisticsResourceControls
+          target={{ kind: "event" }}
+          trips={trips}
+          autoOpen={autoCreate}
+        />
       </div>
       {events.length === 0 && (
         <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">

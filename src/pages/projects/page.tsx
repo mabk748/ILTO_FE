@@ -13,7 +13,20 @@ import KanbanBoard from "./_components/KanbanBoard.tsx";
 import SprintList from "./_components/SprintList.tsx";
 import MilestoneList from "./_components/MilestoneList.tsx";
 import GanttChart from "./_components/GanttChart.tsx";
+import ArchitectureView from "./_components/ArchitectureView.tsx";
 import LoadError from "@/components/LoadError.tsx";
+import { useSearchParams } from "react-router-dom";
+import ProjectImportDialog from "./_components/ProjectImportDialog.tsx";
+
+const PROJECT_TABS = [
+  "projects",
+  "board",
+  "sprints",
+  "milestones",
+  "gantt",
+  "architecture",
+] as const;
+type ProjectTab = (typeof PROJECT_TABS)[number];
 
 function StatCard({
   label,
@@ -36,8 +49,22 @@ function StatCard({
 }
 
 export default function ProjectsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const createMilestone = searchParams.get("create") === "milestone";
+  const requestedTab = searchParams.get("tab");
+  const tab: ProjectTab = createMilestone
+    ? "milestones"
+    : PROJECT_TABS.includes(requestedTab as ProjectTab)
+      ? (requestedTab as ProjectTab)
+      : "board";
   const { data, error, isPending: statsLoading, refetch } = useProjectsData();
   const stats = data ? summarizeProjects(data) : undefined;
+  const changeTab = (value: string) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", value);
+    next.delete("create");
+    setSearchParams(next);
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -90,7 +117,11 @@ export default function ProjectsPage() {
         <ResourceControls target={{ kind: "project" }} />
         <ResourceControls target={{ kind: "sprint" }} />
         <ResourceControls target={{ kind: "task" }} />
-        <ResourceControls target={{ kind: "milestone" }} />
+        <ResourceControls
+          target={{ kind: "milestone" }}
+          autoOpen={createMilestone}
+        />
+        <ProjectImportDialog />
         <button
           type="button"
           className="text-sm underline px-2"
@@ -105,13 +136,14 @@ export default function ProjectsPage() {
         </p>
       )}
       {/* Tabs */}
-      <Tabs defaultValue="board">
+      <Tabs value={tab} onValueChange={changeTab}>
         <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="board">Board</TabsTrigger>
           <TabsTrigger value="sprints">Sprints</TabsTrigger>
           <TabsTrigger value="milestones">Milestones</TabsTrigger>
           <TabsTrigger value="gantt">Gantt</TabsTrigger>
+          <TabsTrigger value="architecture">Architecture</TabsTrigger>
         </TabsList>
 
         <TabsContent value="projects" className="mt-4">
@@ -131,6 +163,10 @@ export default function ProjectsPage() {
 
         <TabsContent value="gantt" className="mt-4">
           <GanttChart />
+        </TabsContent>
+
+        <TabsContent value="architecture" className="mt-4">
+          <ArchitectureView />
         </TabsContent>
       </Tabs>
     </div>

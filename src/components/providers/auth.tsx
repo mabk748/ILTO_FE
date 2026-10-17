@@ -48,8 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (current.current.status !== "authenticated") commit(initial);
     try {
       const owner = await getOwner();
-      if (ticket === generation.current)
+      if (ticket === generation.current) {
+        if (
+          current.current.owner &&
+          current.current.owner.username !== owner.username
+        )
+          clearPrivateData();
         commit({ status: "authenticated", owner, message: null });
+      }
     } catch (error) {
       if (ticket !== generation.current) return;
       const hadSession = current.current.status === "authenticated";

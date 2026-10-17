@@ -1,12 +1,14 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Link, Navigate, Route, Routes } from "react-router-dom";
 import RequireOwner from "./components/layout/RequireOwner.tsx";
 import LoginPage from "./pages/auth/Login.tsx";
 import AppLayout from "./components/layout/AppLayout.tsx";
 import { Skeleton } from "./components/ui/skeleton.tsx";
 
 const DashboardPage = lazy(() => import("./pages/dashboard/page.tsx"));
+const HorizonPage = lazy(() => import("./pages/horizon/page.tsx"));
 const ProjectsPage = lazy(() => import("./pages/projects/page.tsx"));
+const ProjectWorkspace = lazy(() => import("./pages/projects/workspace.tsx"));
 const InfrastructurePage = lazy(
   () => import("./pages/infrastructure/page.tsx"),
 );
@@ -45,7 +47,7 @@ export default function App() {
             element={
               <>
                 <nav className="p-4">
-                  <Link className="underline" to="/projects">
+                  <Link className="underline" to="/horizon">
                     Back to ILTO / sign in
                   </Link>
                 </nav>
@@ -55,8 +57,14 @@ export default function App() {
           />
           <Route element={<RequireOwner />}>
             <Route element={<AppLayout />}>
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/" element={<Navigate to="/horizon" replace />} />
+              <Route path="/horizon" element={<HorizonPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
+              <Route
+                path="/projects/:projectId/*"
+                element={<ProjectWorkspace />}
+              />
               <Route path="/infrastructure" element={<InfrastructurePage />} />
               <Route path="/health" element={<HealthPage />} />
               <Route path="/finances" element={<FinancesPage />} />

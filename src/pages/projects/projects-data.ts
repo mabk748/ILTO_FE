@@ -1,4 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useProjectScope } from "./project-scope.ts";
 import {
   getAllProjects,
   getMilestones,
@@ -20,6 +22,38 @@ export function useProjectsData() {
       return { projects, sprints, tasks, milestones };
     },
   });
+}
+
+export type ProjectsData = NonNullable<
+  ReturnType<typeof useProjectsData>["data"]
+>;
+
+export function scopeProjectsData(
+  data: ProjectsData,
+  projectId: string,
+): ProjectsData {
+  return {
+    projects: data.projects.filter((project) => project.id === projectId),
+    sprints: data.sprints.filter((sprint) => sprint.project_id === projectId),
+    tasks: data.tasks.filter((task) => task.project_id === projectId),
+    milestones: data.milestones.filter(
+      (milestone) => milestone.project_id === projectId,
+    ),
+  };
+}
+
+/** Scope observers, never overwrite the shared cache with a partial snapshot. */
+export function useProjectsViewData() {
+  const query = useProjectsData();
+  const projectId = useProjectScope();
+  const data = useMemo(
+    () =>
+      query.data && projectId !== undefined
+        ? scopeProjectsData(query.data, projectId)
+        : query.data,
+    [query.data, projectId],
+  );
+  return { ...query, data };
 }
 
 export function summarizeProjects(

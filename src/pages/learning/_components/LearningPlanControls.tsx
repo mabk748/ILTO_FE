@@ -714,6 +714,7 @@ interface SessionControlsProps {
   defaults?: Partial<StudySessionDraft>;
   label?: string;
   completeMode?: boolean;
+  autoOpen?: boolean;
 }
 
 export function StudySessionControls({
@@ -723,8 +724,11 @@ export function StudySessionControls({
   defaults,
   label,
   completeMode = false,
+  autoOpen = false,
 }: SessionControlsProps) {
-  const [mode, setMode] = useState<"edit" | "delete" | null>(null);
+  const [mode, setMode] = useState<"edit" | "delete" | null>(
+    autoOpen ? "edit" : null,
+  );
   const id = useId();
   const timeZone = useTimeZone();
   const queryClient = useQueryClient();

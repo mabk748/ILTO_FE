@@ -13,6 +13,7 @@ import DeadlineQueue from "./_components/DeadlineQueue.tsx";
 import ComplianceChecklist from "./_components/ComplianceChecklist.tsx";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
+import { useSearchParams } from "react-router-dom";
 
 type Tab = "roadmap" | "deadlines" | "compliance";
 
@@ -23,7 +24,16 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function WorkPage() {
-  const [tab, setTab] = useState<Tab>("roadmap");
+  const [searchParams] = useSearchParams();
+  const createDeadline = searchParams.get("create") === "deadline";
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<Tab>(
+    createDeadline || requestedTab === "deadlines"
+      ? "deadlines"
+      : requestedTab === "compliance"
+        ? "compliance"
+        : "roadmap",
+  );
   const {
     data,
     error,
@@ -88,7 +98,10 @@ export default function WorkPage() {
             />
           )}
           {tab === "deadlines" && (
-            <DeadlineQueue deadlines={data?.deadlines ?? []} />
+            <DeadlineQueue
+              deadlines={data?.deadlines ?? []}
+              autoCreate={createDeadline}
+            />
           )}
           {tab === "compliance" && (
             <ComplianceChecklist items={data?.compliance ?? []} />

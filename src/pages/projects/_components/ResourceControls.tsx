@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -9,7 +9,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog.tsx";
-import { useProjectsData } from "../projects-data.ts";
+import { useProjectsViewData } from "../projects-data.ts";
+import { useProjectScope } from "../project-scope.ts";
 import {
   initialDraft,
   priorities,
@@ -20,11 +21,19 @@ import {
   type EditorTarget,
 } from "../project-editor.ts";
 import { useProjectsMutation } from "../use-projects-mutation.ts";
+import { TASK_CATEGORIES, TASK_CATEGORY_LABELS } from "../task-model.ts";
 
-export default function ResourceControls({ target }: { target: EditorTarget }) {
+export default function ResourceControls({
+  target,
+  autoOpen = false,
+}: {
+  target: EditorTarget;
+  autoOpen?: boolean;
+}) {
   const [mode, setMode] = useState<"edit" | "delete" | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
-  const { data, isError, isPending } = useProjectsData();
+  const openedAutomatically = useRef(false);
+  const { data, isError, isPending } = useProjectsViewData();
   const disabled =
     isError ||
     isPending ||
@@ -34,6 +43,12 @@ export default function ResourceControls({ target }: { target: EditorTarget }) {
       ? target.record.name
       : target.record.title
     : target.kind;
+  useEffect(() => {
+    if (autoOpen && !disabled && !openedAutomatically.current) {
+      openedAutomatically.current = true;
+      setMode("edit");
+    }
+  }, [autoOpen, disabled]);
   return (
     <>
       <div className="flex flex-wrap gap-2">
@@ -102,19 +117,28 @@ function Editor({
   // background refresh (which could otherwise turn untouched fields into edits).
   const [target] = useState(initialTarget);
   const id = useId();
-  const { data, isError, isPending } = useProjectsData();
-  const [values, setValues] = useState(() => initialDraft(target));
-  const mutation = useProjectsMutation(async () => {
-    if (mode === "delete") return removeResource(target);
-    if (!data || isError)
-      throw new Error("Refresh Projects data before saving.");
-    if (
-      target.kind !== "project" &&
-      !data.projects.some((p) => p.id === values.project_id)
-    )
-      throw new Error("Choose an existing project.");
-    return saveResource(target, values, data.sprints);
-  });
+  const { data, isError, isPending } = useProjectsViewData();
+  const projectId = useProjectScope();
+  const [values, setValues] = useState<Record<string, string>>(() => ({
+    ...initialDraft(target),
+    ...(!target.record && target.kind !== "project" && projectId !== undefined
+      ? { project_id: projectId }
+      : {}),
+  }));
+  const mutation = useProjectsMutation(
+    async () => {
+      if (mode === "delete") return removeResource(target);
+      if (!data || isError)
+        throw new Error("Refresh Projects data before saving.");
+      if (
+        target.kind !== "project" &&
+        !data.projects.some((p) => p.id === values.project_id)
+      )
+        throw new Error("Choose an existing project.");
+      return saveResource(target, values, data.sprints);
+    },
+    { invalidateHorizon: target.kind === "milestone" },
+  );
   const change = (key: string, value: string) =>
     setValues((previous) => ({
       ...previous,
@@ -271,6 +295,14 @@ function Editor({
               {target.kind === "task" && (
                 <>
                   {select(
+                    "category",
+                    "Category",
+                    TASK_CATEGORIES.map((value) => ({
+                      value,
+                      label: TASK_CATEGORY_LABELS[value],
+                    })),
+                  )}
+                  {select(
                     "sprint_id",
                     "Sprint (optional)",
                     [
@@ -283,6 +315,22 @@ function Editor({
                   )}
                   {field("assignee", "Assignee (optional)")}
                   {field("story_points", "Story points", "number", true)}
+                  <div className="space-y-1">
+                    <Label htmlFor={`${id}-acceptance-criteria`}>
+                      Acceptance criteria (optional)
+                    </Label>
+                    <textarea
+                      id={`${id}-acceptance-criteria`}
+                      rows={5}
+                      maxLength={10_000}
+                      className="w-full rounded-md border bg-background p-2 text-sm"
+                      value={values.acceptance_criteria}
+                      onChange={(event) =>
+                        change("acceptance_criteria", event.target.value)
+                      }
+                      placeholder="Describe the measurable conditions for completing this task."
+                    />
+                  </div>
                 </>
               )}
               {target.kind === "milestone" && (

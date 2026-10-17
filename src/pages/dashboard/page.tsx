@@ -71,6 +71,7 @@ import { useSettings } from "@/components/providers/settings-context.ts";
 import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
 import { financeCurrency, formatMoney } from "@/lib/finance.ts";
 import { formatInstant } from "@/lib/time-zone.ts";
+import { summarizeActiveSprints } from "./project-summary.ts";
 
 // ─── Data shape ─────────────────────────────────────────────────────────────
 
@@ -368,7 +369,7 @@ export function DomainHealthCard({
               <div className="mt-1 opacity-70">
                 <Sparkline
                   data={sparkline}
-                  color={sparklineColor ?? "#a78bfa"}
+                  color={sparklineColor ?? "var(--chart-2)"}
                 />
               </div>
             )}
@@ -449,12 +450,9 @@ export default function DashboardPage() {
   });
 
   // ── Derived values ──────────────────────────────────────────────────────────
-  const activeSprint = data?.sprints.find((s) => s.status === "active");
-  const sprintTasks =
-    activeSprint && data
-      ? data.tasks.filter((t) => t.sprint_id === activeSprint.id)
-      : [];
-  const doneTasks = sprintTasks.filter((t) => t.status === "done").length;
+  const { activeSprints, sprintTasks, doneTasks } = data
+    ? summarizeActiveSprints(data.sprints, data.tasks)
+    : { activeSprints: [], sprintTasks: [], doneTasks: 0 };
 
   const budgetsByCurrency = selectedCurrencies.map((currency) => {
     const categories =
@@ -553,9 +551,12 @@ export default function DashboardPage() {
             color: "text-violet-400",
             bg: "bg-violet-500/10",
             metrics: [
-              { label: "Active sprint", value: activeSprint?.name ?? "None" },
               {
-                label: "Tasks done",
+                label: "Active sprints",
+                value: `${activeSprints.length}`,
+              },
+              {
+                label: "Tasks done (active sprints)",
                 value: `${doneTasks} / ${sprintTasks.length}`,
               },
               {
@@ -581,7 +582,7 @@ export default function DashboardPage() {
               { label: "Git today", value: `${totalCommitsToday} commits` },
             ],
             sparkline: data.commitsTrend,
-            sparklineColor: "#60a5fa",
+            sparklineColor: "var(--chart-3)",
             emptySparklineLabel: "No dated commit history",
           },
           {
@@ -610,7 +611,7 @@ export default function DashboardPage() {
               { label: "Workouts (7d)", value: `${workoutCount} sessions` },
             ],
             sparkline: data.sleepTrend,
-            sparklineColor: "#f87171",
+            sparklineColor: "var(--destructive)",
             emptySparklineLabel: "No stored sleep trend",
           },
           {
@@ -777,8 +778,12 @@ export default function DashboardPage() {
                 />
               )}
               <TickerItem
-                label="Sprint"
-                value={activeSprint?.name ?? "No active sprint"}
+                label="Active sprints"
+                value={
+                  activeSprints.length
+                    ? `${activeSprints.length}: ${activeSprints.map((sprint) => sprint.name).join(", ")}`
+                    : "None"
+                }
               />
               <TickerItem
                 label="Tasks"

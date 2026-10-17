@@ -24,6 +24,7 @@ function PrivatePage() {
   return (
     <>
       <p>Private projects for {owner?.username}</p>
+      <input aria-label="Private draft" defaultValue="" />
       <button onClick={() => void logout()}>Sign out</button>
     </>
   );
@@ -67,6 +68,29 @@ afterEach(() => {
 });
 
 describe("owner session UI (mocked fetch, not real cookies)", () => {
+  it("clears Focus caches and unmounts private drafts when another tab changes owner", async () => {
+    fetchMock.mockImplementation(async () =>
+      Response.json({ username: "owner" }),
+    );
+    const { client } = setup();
+    await screen.findByText("Private projects for owner");
+    client.setQueryData(["projects", "focus", "current"], {
+      id: "old-owner-session",
+    });
+    client.setQueryData(["projects", "focus", "project", "p1"], {
+      private: true,
+    });
+    fireEvent.change(screen.getByLabelText("Private draft"), {
+      target: { value: "Previous owner's note" },
+    });
+    fetchMock.mockImplementation(async () =>
+      Response.json({ username: "another-owner" }),
+    );
+    fireEvent.focus(window);
+    await screen.findByText("Private projects for another-owner");
+    expect(client.getQueryCache().getAll()).toHaveLength(0);
+    expect(screen.getByLabelText("Private draft")).toHaveValue("");
+  });
   it("gates private routes, allows settings, and never fabricates an owner", async () => {
     fetchMock.mockResolvedValue(Response.json({}, { status: 401 }));
     setup();

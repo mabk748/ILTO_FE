@@ -21,11 +21,54 @@ export type DomainName =
 export type Priority = "low" | "medium" | "high" | "critical";
 export type Status = "active" | "paused" | "completed" | "archived";
 
+// --- HORIZON DOMAIN ---
+export type HorizonSourceDomain = "horizon" | "projects" | "work" | "logistics";
+export type HorizonSourceType = "item" | "milestone" | "deadline" | "event";
+
+/** A normalized, read-only calendar projection from Horizon or another domain. */
+export interface HorizonEntry {
+  id: string;
+  title: string;
+  starts_at: ISODateString;
+  ends_at: ISODateString | null;
+  all_day: boolean;
+  source_domain: HorizonSourceDomain;
+  source_type: HorizonSourceType;
+  source_id: string;
+  horizon_owned: boolean;
+  detail: string | null;
+  status: string | null;
+}
+
+/** The only calendar record owned and directly writable by Horizon. */
+export interface HorizonItem {
+  id: string;
+  title: string;
+  starts_at: ISODateString;
+  ends_at: ISODateString | null;
+  all_day: boolean;
+  description: string | null;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
 // --- PROJECTS DOMAIN ---
 export type ProjectStatus =
   "planning" | "active" | "on_hold" | "completed" | "archived";
 export type SprintStatus = "planned" | "active" | "completed";
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "review" | "done";
+export type TaskCategory =
+  | "design"
+  | "frontend"
+  | "backend"
+  | "test"
+  | "infrastructure"
+  | "security"
+  | "backup"
+  | "documentation"
+  | "release"
+  | "research"
+  | "other";
 
 export interface Project {
   id: string;
@@ -59,8 +102,12 @@ export interface Task {
   description: string;
   status: TaskStatus;
   priority: Priority;
+  /** Optional only for compatibility with API responses predating this field. */
+  category?: TaskCategory | null;
   assignee: string | null;
   story_points: number;
+  /** Optional only for compatibility with API responses predating this field. */
+  acceptance_criteria?: string | null;
   created_at: ISODateString;
   updated_at: ISODateString;
 }
@@ -73,6 +120,16 @@ export interface Milestone {
   due_date: CalendarDateString;
   completed_at: ISODateString | null;
   created_at: ISODateString;
+}
+
+export interface ProjectRepository {
+  id: string;
+  project_id: string;
+  label: string;
+  provider: "github";
+  repository_url: string;
+  created_at: ISODateString;
+  updated_at: ISODateString;
 }
 
 // --- INFRASTRUCTURE DOMAIN ---

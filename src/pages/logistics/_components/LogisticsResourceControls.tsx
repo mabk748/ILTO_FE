@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTimeZone } from "@/components/providers/settings-context.ts";
 import { Button } from "@/components/ui/button.tsx";
@@ -32,14 +32,23 @@ function targetLabel(target: LogisticsTarget): string {
 export default function LogisticsResourceControls({
   target,
   trips = [],
+  autoOpen = false,
 }: {
   target: LogisticsTarget;
   trips?: Trip[];
+  autoOpen?: boolean;
 }) {
   const [mode, setMode] = useState<"edit" | "delete" | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
+  const openedAutomatically = useRef(false);
   const label = targetLabel(target);
   const kind = target.kind;
+  useEffect(() => {
+    if (autoOpen && !openedAutomatically.current) {
+      openedAutomatically.current = true;
+      setMode("edit");
+    }
+  }, [autoOpen]);
   return (
     <>
       <div className="flex flex-wrap gap-2">

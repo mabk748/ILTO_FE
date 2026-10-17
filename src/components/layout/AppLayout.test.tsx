@@ -66,4 +66,46 @@ describe("application finance privacy controls", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: "MAD" }));
     expect(setSelectedCurrencies).toHaveBeenCalledWith(["EUR", "USD"]);
   });
+
+  it("places Horizon before Dashboard in desktop and mobile navigation", () => {
+    render(
+      <SettingsContext.Provider
+        value={{
+          settings: normalizeSettings({}),
+          updateSettings: vi.fn(),
+          resetSettings: vi.fn(),
+        }}
+      >
+        <FinancePreferencesContext.Provider
+          value={{
+            currency: "EUR",
+            selectedCurrencies: ["EUR"],
+            masked: false,
+            setCurrency: vi.fn(),
+            setSelectedCurrencies: vi.fn(),
+            setMasked: vi.fn(),
+          }}
+        >
+          <MemoryRouter initialEntries={["/horizon"]}>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route path="/horizon" element={<p>Horizon content</p>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </FinancePreferencesContext.Provider>
+      </SettingsContext.Provider>,
+    );
+
+    const links = screen.getAllByRole("link");
+    const labels = links.map((link) => link.textContent?.trim());
+    expect(labels.indexOf("Horizon")).toBeLessThan(labels.indexOf("Dashboard"));
+    expect(screen.getAllByRole("link", { name: /Horizon/ })[0]).toHaveAttribute(
+      "href",
+      "/horizon",
+    );
+    expect(
+      screen.getAllByRole("link", { name: /Dashboard/ })[0],
+    ).toHaveAttribute("href", "/dashboard");
+  });
 });

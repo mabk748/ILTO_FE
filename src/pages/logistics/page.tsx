@@ -13,6 +13,7 @@ import ChecklistsView from "./_components/ChecklistsView.tsx";
 import DocumentsView from "./_components/DocumentsView.tsx";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
+import { useSearchParams } from "react-router-dom";
 
 type Tab = "calendar" | "checklists" | "documents";
 
@@ -23,7 +24,14 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 export default function LogisticsPage() {
-  const [tab, setTab] = useState<Tab>("calendar");
+  const [searchParams] = useSearchParams();
+  const createEvent = searchParams.get("create") === "event";
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState<Tab>(
+    requestedTab === "checklists" || requestedTab === "documents"
+      ? requestedTab
+      : "calendar",
+  );
   const {
     data,
     error,
@@ -85,6 +93,7 @@ export default function LogisticsPage() {
             <EventCalendar
               events={data?.events ?? []}
               trips={data?.trips ?? []}
+              autoCreate={createEvent}
             />
           )}
           {tab === "checklists" && (

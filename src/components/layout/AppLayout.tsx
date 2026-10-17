@@ -1,6 +1,7 @@
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
+  CalendarDays,
   FolderKanban,
   Server,
   HeartPulse,
@@ -43,7 +44,8 @@ interface NavigationItem {
 }
 
 const navItems = [
-  { label: "Dashboard", icon: LayoutDashboard, path: "/" },
+  { label: "Horizon", icon: CalendarDays, path: "/horizon" },
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   {
     label: "Projects",
     icon: FolderKanban,
@@ -92,10 +94,7 @@ function SidebarLink({
   path: string;
 }) {
   const location = useLocation();
-  const isActive =
-    path === "/"
-      ? location.pathname === "/"
-      : location.pathname.startsWith(path);
+  const isActive = location.pathname.startsWith(path);
 
   return (
     <NavLink
@@ -271,10 +270,7 @@ export default function AppLayout() {
       {/* Bottom nav — mobile only */}
       <nav className="fixed bottom-0 left-0 right-0 flex justify-around items-center border-t border-border bg-sidebar px-2 py-2 md:hidden z-50">
         {bottomNavItems.map(({ label, icon: Icon, path }) => {
-          const isActive =
-            path === "/"
-              ? location.pathname === "/"
-              : location.pathname.startsWith(path);
+          const isActive = location.pathname.startsWith(path);
           return (
             <NavLink
               key={path}
