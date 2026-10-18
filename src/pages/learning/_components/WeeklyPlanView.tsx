@@ -197,7 +197,7 @@ export default function WeeklyPlanView({
                     <div className="flex items-start gap-2">
                       {session.completed ? (
                         <CheckCircle2
-                          className="mt-0.5 h-4 w-4 shrink-0 text-green-400"
+                          className="mt-0.5 h-4 w-4 shrink-0 text-success"
                           aria-label="Completed"
                         />
                       ) : (

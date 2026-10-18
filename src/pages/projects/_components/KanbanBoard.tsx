@@ -5,6 +5,7 @@ import ResourceControls from "./ResourceControls.tsx";
 import type { Priority, Task, TaskStatus } from "@/lib/api/types.ts";
 import { updateTask } from "@/lib/api/projects.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { ModuleSectionHeader } from "@/components/layout/ModulePage.tsx";
 import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
 import { ListChecks } from "lucide-react";
@@ -36,8 +37,8 @@ const COLUMNS: { status: TaskStatus; label: string }[] = [
 
 const PRIORITY_CLASSES: Record<Priority, string> = {
   critical: "bg-destructive/20 text-destructive border-destructive/30",
-  high: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/20 text-yellow-500 border-yellow-500/30",
+  high: "bg-warning/15 text-warning border-warning/30",
+  medium: "bg-info/15 text-info border-info/30",
   low: "bg-muted text-muted-foreground border-border",
 };
 
@@ -67,7 +68,7 @@ function TaskCard({
   const category = taskCategory(task);
 
   return (
-    <div className="bg-card border border-border rounded-md p-3 space-y-2 hover:border-primary/50 transition-colors">
+    <div className="space-y-2 rounded-lg border border-border/80 bg-card p-3 shadow-sm transition-colors hover:border-primary/45">
       <p className="text-sm font-medium leading-tight">{task.title}</p>
       <p
         className="truncate text-xs text-muted-foreground"
@@ -256,6 +257,10 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
 
   return (
     <div className="space-y-4">
+      <ModuleSectionHeader
+        title="Task board"
+        description="Review work by status and move Tasks through the existing lifecycle."
+      />
       <ProjectFilterBar
         total={tasks.length}
         shown={visibleTasks.length}
@@ -331,7 +336,7 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
       ) : visibleTasks.length === 0 ? (
         <FilteredEmptyState noun="tasks" onClear={clearFilters} />
       ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
+        <div className="flex snap-x gap-4 overflow-x-auto pb-4">
           {COLUMNS.map((col) => {
             const colTasks = visibleTasks.filter(
               (t) => t.status === col.status,
@@ -339,7 +344,7 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
             return (
               <div
                 key={col.status}
-                className="min-w-[220px] max-w-[220px] space-y-2"
+                className="min-w-[240px] max-w-[240px] snap-start space-y-2 rounded-xl border border-border/60 bg-card/35 p-2"
               >
                 <div className="flex items-center gap-2 px-1">
                   <span className="text-sm font-semibold">{col.label}</span>
@@ -347,7 +352,7 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
                     {colTasks.length}
                   </span>
                 </div>
-                <div className="space-y-2 min-h-[80px] rounded-md bg-muted/30 p-2 border border-dashed border-border">
+                <div className="min-h-[80px] space-y-2 rounded-lg border border-dashed border-border/80 bg-background/35 p-2">
                   {colTasks.map((task) => (
                     <TaskCard
                       key={task.id}

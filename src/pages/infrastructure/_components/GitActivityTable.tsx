@@ -9,11 +9,7 @@ interface Props {
 
 function VelocityBar({ score }: { score: number }) {
   const color =
-    score >= 70
-      ? "bg-green-500"
-      : score >= 40
-        ? "bg-yellow-500"
-        : "bg-destructive";
+    score >= 70 ? "bg-success" : score >= 40 ? "bg-warning" : "bg-destructive";
   return (
     <div className="flex items-center gap-2">
       <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">

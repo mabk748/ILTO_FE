@@ -1,5 +1,143 @@
 # Changelog
 
+## 2026-10-18 — V0.2 pre-deployment visual polish
+
+- Removed accidental cross-axis scrollbars from shared tab and module
+  navigation. Wide strips retain keyboard focus, horizontal touch/trackpad
+  scrolling and automatic visibility for the active control.
+- Replaced empty Project EXPLORE metrics, Infrastructure charts, Intelligence
+  comparisons and Dashboard zero walls with compact, truthful empty states.
+  Existing create/navigation actions remain available where the current UI
+  already supports them.
+- Made single- and two-observation charts explicit: single Infrastructure and
+  Health samples no longer imply a trend, while sparse comparison, finance and
+  assessment charts show their observations and explain the limited evidence.
+- Reduced nested cyan labels and duplicate Infrastructure activity headings
+  without changing Atlas tokens, routes, APIs, calculations or FocusSession
+  safeguards.
+- Advanced the tracked application version through the established version
+  command from `0.1.07` to `0.2.00`. No deployment or Docker command was run.
+
+### Actual checks
+
+- Focused visual-polish checks: passed (11 Vitest files, 66 tests).
+- `npm test`: passed (90 Vitest files, 578 tests, plus version and deployment checks).
+- `npm run build`: passed (3,108 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+- `npm run app:version`: confirmed the tracked version is `0.2.00`.
+- Automated checks use jsdom and mocked HTTP where APIs are involved; this pass
+  did not deploy or perform a second real-browser walkthrough.
+
+## 2026-10-18 — Atlas × Nexus global module refinement
+
+- Added a small shared module composition layer for responsive page shells,
+  identity headers, view navigation and section headings, then applied it to
+  Dashboard, Horizon, Work, Learning, Infrastructure, Finances, Health, Social,
+  Appearance, Logistics and Settings without changing their data behavior.
+- Reorganized Dashboard panels and responsive KPI/action layouts around the
+  existing calculations. Module view switchers now share accessible pressed
+  state, explicit horizontal overflow and consistent mobile spacing.
+- Refined Projects management—records, Board, Sprints, Milestones, Gantt and
+  Architecture—with clearer hierarchy, filter surfaces, responsive Project
+  cards, intentional wide-view scrolling and semantic status treatment. The
+  NOW/NEXT/EXPLORE execution workspace was not redesigned.
+- Replaced conflicting status, urgency, health and completion color literals
+  with Atlas success, warning, destructive and information tokens. Category
+  colors that distinguish real domain types remain intentionally unchanged.
+- Preserved all API contracts, authentication, FocusSession safeguards, query
+  behavior, business calculations and domain models. No package, backend,
+  database, Docker or deployment change was made.
+
+### Actual checks
+
+- Targeted module/layout/Projects checks: passed (12 Vitest files, 87 tests).
+- `npm test`: passed (88 Vitest files, 575 tests, plus version and deployment checks).
+- `npm run build`: passed (3,108 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+- Browser/device visual validation was not available in this agent runtime; the
+  responsive assertions use jsdom and mocked HTTP where APIs are involved.
+
+## 2026-10-18 — Atlas × Nexus Focus workspace redesign
+
+- Rebuilt the route-scoped Project header and NOW/NEXT/EXPLORE navigation around
+  the existing Atlas tokens, with clear Project identity, status, priority and
+  responsive execution-area selection.
+- Recast NOW as a state-responsive execution cockpit with an approximately 70/30
+  desktop composition, mobile-first primary controls, real Task/Sprint/Milestone/
+  repository context and distinct recommendation, active, paused,
+  active-elsewhere, finished follow-up, empty, loading and error treatments.
+- Recast NEXT as a bounded vertical execution queue with URL-backed priority and
+  Sprint filters, real status/effort context and direct NOW/Board actions. The
+  deterministic queue builder and backend recommendation rationale remain the
+  only ordering/recommendation sources.
+- Reorganized EXPLORE around a primary Task delivery insight, semantic status
+  distribution, active Sprint points, Milestones, repositories and backend Focus
+  action, with a readable mobile velocity list and all existing management views.
+- Preserved V0.1.17 Pause/Switch preconditions, session-scoped drafts, explicit
+  note saves, unsaved-navigation protection, no automatic 409 retry, stable
+  idempotent retry and separate FocusSession/Task completion. No backend,
+  dependency, database, Docker or deployment change was made.
+
+### Actual checks
+
+- `npm test`: passed (87 Vitest files, 573 tests, plus version and deployment checks).
+- `npm run build`: passed (3,107 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+- Browser/device visual validation was not available in this agent runtime; the
+  responsive assertions use mocked HTTP and jsdom.
+
+## 2026-10-17 — Atlas × Nexus Projects navigation and System View
+
+- Replaced the default cross-project management screen at `/projects` with a
+  responsive Project directory, URL-backed search/status filtering, a single
+  prominent Create Project action and an owner-current FocusSession shortcut.
+  Project selection retains the existing Project workspace redirect to NOW.
+- Preserved every legacy `?tab=...` management deep link behind a quieter
+  Management entry, including Board, Sprints, Milestones, Gantt, Architecture,
+  creation, import and deletion workflows.
+- Added `/projects?view=system` using only confirmed Project-to-Repository
+  ownership. Its dependency-free SVG/CSS canvas supports bounded zoom/pan,
+  selection, contextual details and direct Project navigation, with an
+  accessible list alternative and explicit empty/unlinked states.
+- Documented that the backend currently exposes no System entity, System
+  membership or Project-to-Project relationship. No inferred links or fictional
+  topology were introduced; the minimal future persisted topology requirements
+  are recorded in `docs/projects-system-view.md`.
+- Added mocked HTTP/jsdom and pure regression coverage for directory routing,
+  filters, Create Project, active Focus, empty/error states, legacy navigation,
+  graph integrity, controls and keyboard-operable links. No new dependency,
+  backend/database change, deployment or real-data write was performed.
+
+### Actual checks
+
+- `npm test`: passed (87 Vitest files, 573 tests, plus version and deployment checks).
+- `npm run build`: passed (3,107 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+
+## 2026-10-17 — Atlas × Nexus global UI foundation
+
+- Replaced the previous indigo-heavy palette with reusable dark canvas, surface,
+  text, cyan focus, success, warning, destructive and information tokens. Shared
+  buttons, cards, forms, dialogs, sheets, tabs, progress, tooltips, loading,
+  empty and error states now consume the same visual system.
+- Rebuilt the authenticated application shell with grouped navigation,
+  contextual route breadcrumbs, a locally persisted desktop icon rail, keyboard
+  focus treatment and accessible collapsed-state tooltips.
+- Added a compact mobile header, primary bottom navigation and a complete
+  retractable navigation drawer with account actions and safe-area spacing.
+- Applied the foundation through shared primitives to all modules, added a
+  reusable empty-state component, and moved Dashboard/Notifications status
+  treatment onto semantic tokens. Existing V0.2 workflows and API contracts
+  were not changed.
+
+### Actual checks
+
+- `npm test`: passed (85 Vitest files, 566 tests, plus version and deployment checks).
+- `npm run build`: passed (3,104 Vite modules transformed).
+- `npm run lint`, `npm run prettier-check`, and `git diff --check`: passed.
+- No new dependency, backend/database change, Docker action or deployment was
+  performed. Real-browser screenshots were unavailable in this agent runtime.
+
 ## 2026-10-17 — V0.2 release hardening: Pause/Switch note integrity
 
 - Updated Pause and Switch for the backend 0.1.17 note-concurrency contract.

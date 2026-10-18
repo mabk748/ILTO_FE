@@ -79,7 +79,7 @@ function BillRow({ bill, now, pending, onToggle }: BillRowProps) {
               <span
                 className={cn(
                   "text-xs",
-                  daysLeft <= 3 ? "text-red-400" : "text-muted-foreground",
+                  daysLeft <= 3 ? "text-destructive" : "text-muted-foreground",
                 )}
               >
                 ({daysLeft}d)
@@ -99,7 +99,7 @@ function BillRow({ bill, now, pending, onToggle }: BillRowProps) {
           className={cn(
             "text-xs px-2 py-1 rounded border transition-colors cursor-pointer",
             bill.paid
-              ? "bg-green-500/15 text-green-400 border-green-500/30"
+              ? "bg-success/12 text-success border-success/25"
               : "bg-muted text-muted-foreground border-border hover:border-primary hover:text-primary",
           )}
         >
@@ -220,7 +220,7 @@ export default function BillsView({ bills }: Props) {
       <BillsSection
         title="Overdue"
         items={overdue}
-        accent="text-red-400"
+        accent="text-destructive"
         now={now}
         pending={mutation.isPending}
         onToggle={toggleBill}
@@ -235,7 +235,7 @@ export default function BillsView({ bills }: Props) {
       <BillsSection
         title="Upcoming"
         items={upcoming}
-        accent="text-red-400"
+        accent="text-destructive"
         now={now}
         pending={mutation.isPending}
         onToggle={toggleBill}
@@ -243,7 +243,7 @@ export default function BillsView({ bills }: Props) {
       <BillsSection
         title="Due Soon"
         items={dueSoon}
-        accent="text-yellow-400"
+        accent="text-warning"
         now={now}
         pending={mutation.isPending}
         onToggle={toggleBill}

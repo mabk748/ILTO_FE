@@ -23,10 +23,10 @@ import {
 } from "./LearningPlanControls.tsx";
 
 const priorityStyle: Record<LearningBottleneck["priority"], string> = {
-  critical: "border-red-500/40 bg-red-500/10 text-red-400",
-  high: "border-orange-500/40 bg-orange-500/10 text-orange-400",
-  medium: "border-yellow-500/40 bg-yellow-500/10 text-yellow-400",
-  low: "border-blue-500/40 bg-blue-500/10 text-blue-400",
+  critical: "border-destructive/35 bg-destructive/10 text-destructive",
+  high: "border-warning/35 bg-warning/10 text-warning",
+  medium: "border-info/35 bg-info/10 text-info",
+  low: "border-border bg-muted text-muted-foreground",
 };
 
 export default function BottleneckView({

@@ -2,6 +2,7 @@ import { useProjectsViewData } from "../projects-data.ts";
 import ResourceControls from "./ResourceControls.tsx";
 import type { Milestone, Project } from "@/lib/api/types.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { ModuleSectionHeader } from "@/components/layout/ModulePage.tsx";
 import {
   Card,
   CardContent,
@@ -27,8 +28,8 @@ const MILESTONE_FILTER_KEYS = ["project", "milestone"] as const;
 const STATUS_COLOR: Record<string, string> = {
   active: "bg-primary/20 text-primary border-primary/30",
   planning: "bg-muted text-muted-foreground border-border",
-  on_hold: "bg-muted text-muted-foreground border-border",
-  completed: "bg-foreground/10 text-foreground border-foreground/30",
+  on_hold: "bg-warning/12 text-warning border-warning/25",
+  completed: "bg-success/12 text-success border-success/25",
   archived: "bg-muted text-muted-foreground border-border",
 };
 
@@ -46,7 +47,7 @@ function MilestoneRow({
     <div className="flex gap-4 items-start border-b border-border last:border-0 py-4">
       <div className="shrink-0 mt-0.5">
         {isDone ? (
-          <CheckCircle2 className="h-5 w-5 text-foreground" />
+          <CheckCircle2 className="h-5 w-5 text-success" />
         ) : (
           <Circle
             className={cn(
@@ -115,7 +116,7 @@ function MilestoneTimeline({ milestones }: { milestones: Milestone[] }) {
                 className={cn(
                   "w-3 h-3 rounded-full border-2",
                   isDone
-                    ? "bg-foreground border-foreground"
+                    ? "bg-success border-success"
                     : overdue
                       ? "bg-destructive border-destructive"
                       : "bg-background border-primary",
@@ -183,6 +184,10 @@ export default function MilestoneList() {
 
   return (
     <div className="space-y-4">
+      <ModuleSectionHeader
+        title="Milestones"
+        description="Track important Project dates and completion state without hiding overdue work."
+      />
       <ProjectFilterBar
         total={allMilestones.length}
         shown={milestones.length}
@@ -206,7 +211,7 @@ export default function MilestoneList() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
-            <Card>
+            <Card className="overflow-hidden">
               <CardHeader className="pb-0">
                 <CardTitle className="text-sm font-semibold">
                   Timeline
@@ -217,7 +222,7 @@ export default function MilestoneList() {
               </CardContent>
             </Card>
 
-            <Card>
+            <Card className="overflow-hidden">
               <CardContent className="pt-4 divide-y divide-border">
                 {allMilestones.length === 0 && (
                   <p className="py-4 text-sm">No milestones yet.</p>

@@ -38,7 +38,7 @@ function BookCard({ entry }: { entry: ReadingEntry }) {
             <p className="text-xs text-muted-foreground">{entry.author}</p>
           </div>
           {isComplete ? (
-            <CheckCircle className="h-4 w-4 text-green-400 shrink-0 mt-0.5" />
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" />
           ) : (
             <BookOpen className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           )}
@@ -55,7 +55,7 @@ function BookCard({ entry }: { entry: ReadingEntry }) {
             <div
               className={cn(
                 "h-full rounded-full",
-                isComplete ? "bg-green-500" : "bg-primary",
+                isComplete ? "bg-success" : "bg-primary",
               )}
               style={{ width: `${Math.max(0, Math.min(100, pct ?? 0))}%` }}
             />

@@ -11,6 +11,14 @@ import {
   useParams,
   useSearchParams,
 } from "react-router-dom";
+import {
+  ArrowLeft,
+  Compass,
+  Crosshair,
+  Layers3,
+  RefreshCw,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import FocusNow from "./_components/FocusNow.tsx";
 import ProjectNext from "./_components/ProjectNext.tsx";
@@ -49,6 +57,32 @@ type WorkspaceContext = { project: Project; data: ProjectsData };
 const useWorkspace = () => useOutletContext<WorkspaceContext>();
 const projectPath = (id: string) => `/projects/${encodeURIComponent(id)}`;
 const readable = (value: string) => value.replaceAll("_", " ");
+const WORKSPACE_AREAS = [
+  {
+    id: "now",
+    label: "NOW",
+    description: "Execute",
+    icon: Crosshair,
+  },
+  {
+    id: "next",
+    label: "NEXT",
+    description: "Sequence",
+    icon: Layers3,
+  },
+  {
+    id: "explore",
+    label: "EXPLORE",
+    description: "Understand",
+    icon: Compass,
+  },
+] as const;
+
+function projectStatusVariant(status: Project["status"]) {
+  if (status === "active" || status === "completed") return "success";
+  if (status === "on_hold") return "warning";
+  return "outline";
+}
 
 /** Mounted under the existing owner guard and app shell. */
 export default function ProjectWorkspace() {
@@ -89,11 +123,12 @@ function WorkspaceLayout() {
   }, [location.pathname, project?.id]);
 
   return (
-    <div className="project-workspace mx-auto min-w-0 max-w-7xl space-y-5 p-4 md:p-6">
+    <div className="project-workspace mx-auto min-w-0 max-w-[92rem] space-y-5 p-4 pb-24 md:p-6 md:pb-8">
       <Link
-        className="text-sm underline underline-offset-4"
-        to="/projects?tab=projects"
+        className="inline-flex min-h-10 items-center gap-2 rounded-md px-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        to="/projects"
       >
+        <ArrowLeft className="size-4" aria-hidden="true" />
         Back to Projects
       </Link>
       {query.error && !query.data ? (
@@ -121,50 +156,75 @@ function WorkspaceLayout() {
               onRetry={() => void query.refetch()}
             />
           )}
-          <header className="space-y-3 border-b pb-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0 space-y-2">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                  Project workspace
-                </p>
+          <header className="relative overflow-hidden rounded-2xl border border-border/70 bg-surface/85 p-4 shadow-[0_24px_70px_-48px_color-mix(in_srgb,var(--primary)_50%,transparent)] sm:p-5 lg:p-6">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent"
+            />
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 max-w-4xl space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[0.68rem] font-semibold tracking-[0.18em] text-primary uppercase">
+                    Project workspace
+                  </p>
+                  <span className="h-1 w-1 rounded-full bg-border" />
+                  <Badge variant={projectStatusVariant(project.status)}>
+                    {readable(project.status)}
+                  </Badge>
+                  <Badge variant="secondary">{project.priority} priority</Badge>
+                </div>
                 <h1
                   ref={heading}
                   tabIndex={-1}
-                  className="break-words text-2xl font-semibold tracking-tight"
+                  className="break-words font-mono text-2xl font-bold tracking-tight sm:text-3xl"
                 >
                   {project.name}
                 </h1>
-                <p className="text-sm text-muted-foreground">
-                  {readable(project.status)} · {project.priority} priority
+                <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+                  {project.description || "No project description yet."}
                 </p>
               </div>
               <Button
                 size="sm"
                 variant="outline"
+                className="self-start"
                 disabled={query.isFetching}
                 onClick={() => void query.refetch()}
               >
+                <RefreshCw
+                  className={query.isFetching ? "animate-spin" : undefined}
+                  aria-hidden="true"
+                />
                 {query.isFetching ? "Refreshing…" : "Refresh project"}
               </Button>
             </div>
-            <p className="max-w-3xl whitespace-pre-wrap break-words text-sm text-muted-foreground">
-              {project.description || "No project description yet."}
-            </p>
             <nav
               aria-label="Project workspace"
-              className="grid grid-cols-3 gap-2 sm:flex"
+              className="mt-5 grid grid-cols-3 gap-1 rounded-xl border border-border/70 bg-canvas/60 p-1"
             >
-              {(["now", "next", "explore"] as const).map((area) => (
-                <NavLink
-                  key={area}
-                  to={`${projectPath(project.id)}/${area}${location.search}`}
-                  className={({ isActive }) =>
-                    `rounded-md border px-4 py-2 text-center text-sm font-semibold ${isActive ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`
-                  }
-                >
-                  {area.toUpperCase()}
-                </NavLink>
-              ))}
+              {WORKSPACE_AREAS.map((area) => {
+                const Icon = area.icon;
+                return (
+                  <NavLink
+                    key={area.id}
+                    aria-label={area.label}
+                    to={`${projectPath(project.id)}/${area.id}${location.search}`}
+                    className={({ isActive }) =>
+                      `group flex min-h-12 items-center justify-center gap-2 rounded-lg border px-2 py-2 text-center transition-all focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-14 sm:px-4 ${isActive ? "border-primary/35 bg-primary/12 text-foreground shadow-[inset_0_-2px_0_var(--primary)]" : "border-transparent text-muted-foreground hover:bg-muted/70 hover:text-foreground"}`
+                    }
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden="true" />
+                    <span>
+                      <span className="block font-mono text-xs font-bold tracking-[0.12em] sm:text-sm">
+                        {area.label}
+                      </span>
+                      <span className="hidden text-[0.65rem] font-normal text-muted-foreground sm:block">
+                        {area.description}
+                      </span>
+                    </span>
+                  </NavLink>
+                );
+              })}
             </nav>
           </header>
           <Outlet
@@ -210,20 +270,40 @@ function Explore() {
   const taskId = params.get("task");
   const selectedTask = data.tasks.find((task) => task.id === taskId);
   return (
-    <section aria-labelledby="explore-heading" className="min-w-0 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <section
+      aria-labelledby="explore-heading"
+      data-workspace-area="explore"
+      className="min-w-0 space-y-5"
+    >
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id="explore-heading" className="text-xl font-semibold">
+          <p className="text-[0.68rem] font-semibold tracking-[0.18em] text-primary uppercase">
+            Project intelligence
+          </p>
+          <h2
+            id="explore-heading"
+            className="mt-1 font-mono text-xl font-bold tracking-tight sm:text-2xl"
+          >
             EXPLORE
           </h2>
-          <p className="text-sm text-muted-foreground">
-            Planning and management for this Project.
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Understand progress, inspect delivery context and open focused
+            management views for this Project.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div
+          className="flex flex-wrap gap-2 rounded-xl border border-border/70 bg-card/60 p-2"
+          aria-label="Create Project resources"
+        >
           <ResourceControls target={{ kind: "task" }} />
-          <ResourceControls target={{ kind: "sprint" }} />
-          <ResourceControls target={{ kind: "milestone" }} />
+          <ResourceControls
+            target={{ kind: "sprint" }}
+            triggerVariant="outline"
+          />
+          <ResourceControls
+            target={{ kind: "milestone" }}
+            triggerVariant="outline"
+          />
         </div>
       </div>
       <Tabs
@@ -236,7 +316,8 @@ function Explore() {
       >
         <TabsList
           aria-label="Explore views"
-          className="flex h-auto max-w-full flex-wrap justify-start"
+          className="flex h-auto w-full max-w-full justify-start overflow-x-auto sm:w-fit"
+          variant="line"
         >
           {EXPLORE_VIEWS.map((item) => (
             <TabsTrigger key={item} value={item} className="capitalize">
@@ -249,10 +330,10 @@ function Explore() {
             Unknown EXPLORE view. Choose a view above.
           </p>
         )}
-        <TabsContent value="overview" className="mt-4">
+        <TabsContent value="overview" className="mt-5">
           <ProjectOverview project={project} data={data} />
         </TabsContent>
-        <TabsContent value="board" className="mt-4 space-y-3">
+        <TabsContent value="board" className="mt-5 space-y-3">
           {taskId !== null && (
             <div className="space-y-2 rounded-lg border p-3">
               {selectedTask ? (
@@ -279,16 +360,16 @@ function Explore() {
             <KanbanBoard taskId={selectedTask?.id} />
           )}
         </TabsContent>
-        <TabsContent value="sprints" className="mt-4">
+        <TabsContent value="sprints" className="mt-5">
           <SprintList />
         </TabsContent>
-        <TabsContent value="milestones" className="mt-4">
+        <TabsContent value="milestones" className="mt-5">
           <MilestoneList />
         </TabsContent>
-        <TabsContent value="gantt" className="mt-4">
+        <TabsContent value="gantt" className="mt-5">
           <GanttChart />
         </TabsContent>
-        <TabsContent value="architecture" className="mt-4">
+        <TabsContent value="architecture" className="mt-5">
           <ArchitectureView />
         </TabsContent>
       </Tabs>

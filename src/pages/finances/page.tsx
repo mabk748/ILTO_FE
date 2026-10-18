@@ -9,21 +9,25 @@ import {
 } from "@/lib/api/finances.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { TrendingUp } from "lucide-react";
+import {
+  ModuleHeader,
+  ModulePage,
+  ModuleTabs,
+} from "@/components/layout/ModulePage.tsx";
 import BudgetView from "./_components/BudgetView.tsx";
 import PortfolioView from "./_components/PortfolioView.tsx";
 import BillsView from "./_components/BillsView.tsx";
 import TransactionsView from "./_components/TransactionsView.tsx";
-import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
 import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
 
 type Tab = "transactions" | "budget" | "portfolio" | "bills";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "transactions", label: "Transactions" },
-  { id: "budget", label: "Budget" },
-  { id: "portfolio", label: "Portfolio" },
-  { id: "bills", label: "Bills" },
+const TABS: { id: Tab; label: string; detail: string }[] = [
+  { id: "transactions", label: "Transactions", detail: "Record activity" },
+  { id: "budget", label: "Budget", detail: "Monthly allocation" },
+  { id: "portfolio", label: "Portfolio", detail: "Stored positions" },
+  { id: "bills", label: "Bills", detail: "Upcoming obligations" },
 ];
 
 export default function FinancesPage() {
@@ -50,41 +54,27 @@ export default function FinancesPage() {
   });
 
   return (
-    <div className="p-4 md:p-6 space-y-5">
-      <div className="flex items-center gap-3">
-        <TrendingUp className="h-6 w-6 text-primary shrink-0" />
-        <div>
-          <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
-            Finances
-          </h1>
-          <p className="text-xs text-muted-foreground">
+    <ModulePage>
+      <ModuleHeader
+        title="Finances"
+        icon={TrendingUp}
+        eyebrow="Financial operating domain"
+        description={
+          <>
             {selectedCurrencies.length === 0
               ? "No currencies selected."
               : `Showing ${selectedCurrencies.join(", ")}.`}{" "}
             Stored currencies are never converted or added together.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
-              tab === t.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <ModuleTabs
+        label="Finance views"
+        items={TABS}
+        value={tab}
+        onValueChange={setTab}
+      />
 
       {error ? (
         <LoadError error={error} onRetry={() => void refetch()} />
@@ -114,6 +104,6 @@ export default function FinancesPage() {
           {tab === "bills" && <BillsView bills={data?.bills ?? []} />}
         </>
       )}
-    </div>
+    </ModulePage>
   );
 }

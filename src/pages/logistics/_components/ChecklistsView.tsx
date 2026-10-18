@@ -18,9 +18,9 @@ import {
 import { logisticsWriteError } from "../logistics-editor.ts";
 
 const priorityBadge: Record<string, string> = {
-  critical: "bg-red-500/20 text-red-400 border-red-500/30",
-  high: "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  medium: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  critical: "bg-destructive/12 text-destructive border-destructive/25",
+  high: "bg-warning/12 text-warning border-warning/25",
+  medium: "bg-info/12 text-info border-info/25",
   low: "bg-muted text-muted-foreground border-border",
 };
 

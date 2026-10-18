@@ -8,7 +8,7 @@ function ErrorState({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="error-state"
       className={cn(
-        "flex min-w-0 flex-1 flex-col items-center justify-center gap-6 rounded-lg border-2 border-dashed border-destructive/50 p-6 text-center text-balance md:p-12",
+        "flex min-w-0 flex-1 flex-col items-center justify-center gap-5 rounded-xl border border-dashed border-destructive/45 bg-destructive/[0.035] p-6 text-center text-balance md:p-12",
         className,
       )}
       {...props}

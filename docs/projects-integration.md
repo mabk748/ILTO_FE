@@ -1,5 +1,37 @@
 # Projects frontend integration
 
+## Atlas × Nexus Batch 3 — Focus workspace
+
+The Project-scoped NOW/NEXT/EXPLORE surface has been recomposed as the Atlas ×
+Nexus execution workspace without changing its API or state contracts. NOW is a
+state-responsive execution cockpit, NEXT is a bounded URL-filterable execution
+queue, and EXPLORE uses a primary delivery insight with progressively disclosed
+management views. FocusSession concurrency, draft identity, idempotency,
+navigation guards and the separation between finishing a session and completing
+a Task remain intact. See [Focus workspace redesign](projects-focus-redesign.md)
+for the data boundaries, responsive structure and verification scope.
+
+## Atlas × Nexus Batch 2 — directory and System View
+
+`/projects` now opens the Project directory rather than the cross-project
+management surface. Search and status filtering use URL parameters, an active
+FocusSession is linked back to its Project NOW workspace, and every Project link
+continues through `/projects/:projectId`, whose existing redirect selects NOW.
+The former management surface remains available through **Management** and all
+existing `/projects?tab=projects|board|sprints|milestones|gantt|architecture`
+deep links.
+
+`/projects?view=system` is an honest architecture projection. The current API
+persists Project-to-Repository ownership through `ProjectRepository.project_id`,
+so those are the only nodes and edges drawn. Repository reads compose the
+confirmed per-Project endpoint; no global repository endpoint is assumed.
+Systems, System membership and Project-to-Project relationships are not present
+in the current frontend/backend contract and are neither inferred nor mocked.
+The canvas supports selection, contextual details, bounded zoom/pan and direct
+Project navigation, with a keyboard-friendly list alternative. See
+[Projects directory and System View](projects-system-view.md) for the complete
+data boundary and future backend requirements.
+
 ## V0.2 Phase 2 — Focus execution
 
 NOW now consumes the confirmed backend FocusSession/recommendation contracts.
@@ -10,9 +42,9 @@ session statements describe that earlier iteration, not the current NOW screen.
 
 ## V0.2 Phase 1 — Project workspace
 
-The existing `/projects` management page (Board by default) and all
-`/projects?tab=...` URLs remain available. Each Project card now has an **Open
-project** link. The owner-protected application router also supports:
+The cross-project management page and all `/projects?tab=...` URLs remain
+available behind the directory's **Management** action. Each Project card has an
+**Open project** link. The owner-protected application router also supports:
 
 - `/projects/:projectId` → `/projects/:projectId/now` (replace redirect, preserving
   query parameters).

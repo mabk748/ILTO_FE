@@ -24,8 +24,8 @@ const RELATIONSHIP_STYLES: Record<RelationshipType, string> = {
 };
 
 const STATUS_DOT: Record<ContactStatus, string> = {
-  active: "bg-green-400",
-  dormant: "bg-yellow-400",
+  active: "bg-success",
+  dormant: "bg-warning",
   lost: "bg-muted-foreground",
 };
 

@@ -1,9 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
 import AppLayout from "./AppLayout.tsx";
 import { FinancePreferencesContext } from "@/components/providers/finance-preferences-context.ts";
 import { SettingsContext } from "@/components/providers/settings-context.ts";
+import { TooltipProvider } from "@/components/ui/tooltip.tsx";
+import type { FinanceCurrency } from "@/lib/api/types.ts";
 import { normalizeSettings } from "@/lib/settings.ts";
 
 vi.mock("@/components/providers/owner-auth-context.ts", () => ({
@@ -13,39 +21,61 @@ vi.mock("@/components/providers/owner-auth-context.ts", () => ({
   }),
 }));
 
-describe("application finance privacy controls", () => {
-  it("exposes an accessible mask button and EUR/MAD/USD selector", () => {
-    const setCurrency = vi.fn();
-    const setSelectedCurrencies = vi.fn();
-    const setMasked = vi.fn();
-    render(
-      <SettingsContext.Provider
+const SIDEBAR_COLLAPSED_STORAGE_KEY = "ilto_sidebar_collapsed";
+
+function renderLayout({
+  initialPath = "/horizon",
+  setCurrency = vi.fn(),
+  setSelectedCurrencies = vi.fn(),
+  setMasked = vi.fn(),
+}: {
+  initialPath?: string;
+  setCurrency?: (currency: FinanceCurrency) => void;
+  setSelectedCurrencies?: (currencies: FinanceCurrency[]) => void;
+  setMasked?: (masked: boolean) => void;
+} = {}) {
+  return render(
+    <SettingsContext.Provider
+      value={{
+        settings: normalizeSettings({}),
+        updateSettings: vi.fn(),
+        resetSettings: vi.fn(),
+      }}
+    >
+      <FinancePreferencesContext.Provider
         value={{
-          settings: normalizeSettings({}),
-          updateSettings: vi.fn(),
-          resetSettings: vi.fn(),
+          currency: "EUR",
+          selectedCurrencies: ["EUR", "MAD", "USD"],
+          masked: false,
+          setCurrency,
+          setSelectedCurrencies,
+          setMasked,
         }}
       >
-        <FinancePreferencesContext.Provider
-          value={{
-            currency: "EUR",
-            selectedCurrencies: ["EUR", "MAD", "USD"],
-            masked: false,
-            setCurrency,
-            setSelectedCurrencies,
-            setMasked,
-          }}
-        >
-          <MemoryRouter>
+        <TooltipProvider>
+          <MemoryRouter initialEntries={[initialPath]}>
             <Routes>
               <Route element={<AppLayout />}>
-                <Route index element={<p>Dashboard</p>} />
+                <Route path="*" element={<p>Route content</p>} />
               </Route>
             </Routes>
           </MemoryRouter>
-        </FinancePreferencesContext.Provider>
-      </SettingsContext.Provider>,
-    );
+        </TooltipProvider>
+      </FinancePreferencesContext.Provider>
+    </SettingsContext.Provider>,
+  );
+}
+
+describe("application shell", () => {
+  beforeEach(() => {
+    window.localStorage.removeItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+  });
+
+  it("exposes accessible finance privacy and currency controls", () => {
+    const setCurrency = vi.fn();
+    const setSelectedCurrencies = vi.fn();
+    const setMasked = vi.fn();
+    renderLayout({ setCurrency, setSelectedCurrencies, setMasked });
 
     const maskButton = screen.getByRole("button", {
       name: "Mask financial data",
@@ -68,34 +98,7 @@ describe("application finance privacy controls", () => {
   });
 
   it("places Horizon before Dashboard in desktop and mobile navigation", () => {
-    render(
-      <SettingsContext.Provider
-        value={{
-          settings: normalizeSettings({}),
-          updateSettings: vi.fn(),
-          resetSettings: vi.fn(),
-        }}
-      >
-        <FinancePreferencesContext.Provider
-          value={{
-            currency: "EUR",
-            selectedCurrencies: ["EUR"],
-            masked: false,
-            setCurrency: vi.fn(),
-            setSelectedCurrencies: vi.fn(),
-            setMasked: vi.fn(),
-          }}
-        >
-          <MemoryRouter initialEntries={["/horizon"]}>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/horizon" element={<p>Horizon content</p>} />
-              </Route>
-            </Routes>
-          </MemoryRouter>
-        </FinancePreferencesContext.Provider>
-      </SettingsContext.Provider>,
-    );
+    renderLayout();
 
     const links = screen.getAllByRole("link");
     const labels = links.map((link) => link.textContent?.trim());
@@ -107,5 +110,55 @@ describe("application finance privacy controls", () => {
     expect(
       screen.getAllByRole("link", { name: /Dashboard/ })[0],
     ).toHaveAttribute("href", "/dashboard");
+    expect(screen.getByText("Personal OS · V0.2.00")).toBeVisible();
+  });
+
+  it("collapses the desktop sidebar and persists the preference", () => {
+    const firstRender = renderLayout();
+    const sidebar = screen.getByTestId("desktop-sidebar");
+
+    expect(sidebar).toHaveAttribute("data-collapsed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    expect(sidebar).toHaveAttribute("data-collapsed", "true");
+    expect(window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY)).toBe(
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "Expand sidebar" }),
+    ).toHaveAttribute("aria-expanded", "false");
+
+    firstRender.unmount();
+    renderLayout();
+    expect(screen.getByTestId("desktop-sidebar")).toHaveAttribute(
+      "data-collapsed",
+      "true",
+    );
+  });
+
+  it("opens the mobile navigation drawer and closes it after navigation", async () => {
+    renderLayout();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open navigation menu" }),
+    );
+    const drawer = screen.getByRole("dialog", { name: "ILTO navigation" });
+    const drawerNavigation = within(drawer).getByRole("navigation", {
+      name: "Navigation drawer",
+    });
+    expect(
+      within(drawerNavigation).getByRole("link", { name: "Work" }),
+    ).toHaveAttribute("href", "/work");
+    expect(
+      within(drawerNavigation).getByRole("link", { name: "Settings" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(drawerNavigation).getByRole("link", { name: "Work" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "ILTO navigation" }),
+      ).not.toBeInTheDocument(),
+    );
   });
 });

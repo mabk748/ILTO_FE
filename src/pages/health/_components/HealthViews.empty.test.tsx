@@ -62,6 +62,29 @@ describe("Health empty states", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not present one health measurement as a trend", () => {
+    render(
+      <MetricsCharts
+        metrics={[
+          {
+            id: "metric-1",
+            date: "2026-10-18T08:00:00Z",
+            weight_kg: 70,
+            sleep_hours: 8,
+            resting_hr: 60,
+            hrv: 50,
+            steps: null,
+            calories_consumed: null,
+          },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByText(/Add another dated measurement before interpreting/),
+    ).toBeVisible();
+    expect(screen.queryByText("Resting HR (bpm)")).not.toBeInTheDocument();
+  });
+
   it("opens the selected Sessions workflow for Dashboard Log workout", () => {
     render(
       <QueryClientProvider client={new QueryClient()}>

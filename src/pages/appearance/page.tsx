@@ -8,18 +8,22 @@ import {
 } from "@/lib/api/appearance.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Shirt } from "lucide-react";
+import {
+  ModuleHeader,
+  ModulePage,
+  ModuleTabs,
+} from "@/components/layout/ModulePage.tsx";
 import WardrobeGrid from "./_components/WardrobeGrid.tsx";
 import GroomingRoutineList from "./_components/GroomingRoutineList.tsx";
 import AppearanceSpendView from "./_components/AppearanceSpendView.tsx";
-import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
 
 type Tab = "wardrobe" | "grooming" | "spending";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "wardrobe", label: "Wardrobe" },
-  { id: "grooming", label: "Grooming" },
-  { id: "spending", label: "Spending" },
+const TABS: { id: Tab; label: string; detail: string }[] = [
+  { id: "wardrobe", label: "Wardrobe", detail: "Available items" },
+  { id: "grooming", label: "Grooming", detail: "Routines and outfits" },
+  { id: "spending", label: "Spending", detail: "Stored records" },
 ];
 
 export default function AppearancePage() {
@@ -43,33 +47,20 @@ export default function AppearancePage() {
   });
 
   return (
-    <div className="p-4 md:p-6 space-y-5">
-      <div className="flex items-center gap-3">
-        <Shirt className="h-6 w-6 text-primary shrink-0" />
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          Appearance
-        </h1>
-      </div>
+    <ModulePage>
+      <ModuleHeader
+        title="Appearance"
+        description="Organize the wardrobe, review routines and understand stored appearance spending."
+        icon={Shirt}
+        eyebrow="Appearance operating domain"
+      />
 
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
-              tab === t.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <ModuleTabs
+        label="Appearance views"
+        items={TABS}
+        value={tab}
+        onValueChange={setTab}
+      />
 
       {error ? (
         <LoadError error={error} onRetry={() => void refetch()} />
@@ -94,6 +85,6 @@ export default function AppearancePage() {
           )}
         </>
       )}
-    </div>
+    </ModulePage>
   );
 }

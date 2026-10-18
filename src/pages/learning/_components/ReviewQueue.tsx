@@ -126,7 +126,7 @@ export default function ReviewQueue({ cards: initialCards }: Props) {
                 )}
 
                 {isDone && (
-                  <div className="flex items-center gap-1.5 text-xs text-green-400">
+                  <div className="flex items-center gap-1.5 text-xs text-success">
                     <CheckCircle className="h-3 w-3" /> Reviewed. Next review:{" "}
                     {formatInstant(schedule.next_review, timeZone, {
                       year: "numeric",

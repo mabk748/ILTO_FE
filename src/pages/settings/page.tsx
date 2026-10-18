@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Settings, Server, Eye, Save, RotateCcw, Clock3 } from "lucide-react";
+import { ModuleHeader, ModulePage } from "@/components/layout/ModulePage.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -132,139 +133,137 @@ export default function SettingsPage() {
   ).length;
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <Settings className="h-6 w-6 text-primary shrink-0" />
-          <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
-            Settings
-          </h1>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4 mr-1.5" />
-            Reset
-          </Button>
-          <Button size="sm" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-1.5" />
-            Save changes
-          </Button>
-        </div>
-      </div>
+    <ModulePage readingWidth>
+      <ModuleHeader
+        title="Settings"
+        description="Configure the trusted API connection, local presentation preferences and visible ILTO domains."
+        icon={Settings}
+        eyebrow="Local application control"
+        actions={
+          <>
+            <Button variant="ghost" size="sm" onClick={handleReset}>
+              <RotateCcw className="h-4 w-4 mr-1.5" />
+              Reset
+            </Button>
+            <Button size="sm" onClick={handleSave}>
+              <Save className="h-4 w-4 mr-1.5" />
+              Save changes
+            </Button>
+          </>
+        }
+      />
 
-      {/* API Config */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Server className="h-4 w-4 text-primary" />
-            API Configuration
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Save a trusted backend root, including its API prefix. Leave blank
-            to use the same-origin deployment default.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="apiBaseUrl" className="text-xs font-medium">
-              API Base URL
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Server className="h-4 w-4 text-primary" />
+              API Configuration
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Save a trusted backend root, including its API prefix. Leave blank
+              to use the same-origin deployment default.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="apiBaseUrl" className="text-xs font-medium">
+                API Base URL
+              </Label>
+              <Input
+                id="apiBaseUrl"
+                type="text"
+                inputMode="url"
+                placeholder="/api/v1"
+                value={settings.apiBaseUrl}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    apiBaseUrl: e.target.value,
+                  }))
+                }
+                className="font-mono text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                The deployed default is{" "}
+                <span className="font-mono">/api/v1</span> through the same
+                origin. An absolute HTTP(S) URL remains available for explicit
+                development overrides. Only save a backend you trust with your
+                owner credentials.
+              </p>
+            </div>
+
+            <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1">
+              <p className="text-xs font-semibold">Saved API URL</p>
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "w-2 h-2 rounded-full",
+                    persistedSettings.apiBaseUrl
+                      ? "bg-orange-400"
+                      : "bg-muted-foreground",
+                  )}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {persistedSettings.apiBaseUrl ||
+                    "Environment default (if configured)"}
+                </span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Saving a different URL clears cached data and checks the session
+                on that backend. This does not sign you out of the previous
+                backend.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <Clock3 className="h-4 w-4 text-primary" />
+              Time zone
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Controls the dashboard clock, displayed instants, and how local
+              date-time form values are converted to UTC.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            <Label htmlFor="timeZone" className="text-xs font-medium">
+              IANA time zone
             </Label>
             <Input
-              id="apiBaseUrl"
+              id="timeZone"
               type="text"
-              inputMode="url"
-              placeholder="/api/v1"
-              value={settings.apiBaseUrl}
-              onChange={(e) =>
-                setSettings((prev) => ({
-                  ...prev,
-                  apiBaseUrl: e.target.value,
+              list="common-time-zones"
+              placeholder="Africa/Casablanca"
+              value={settings.timeZone}
+              onChange={(event) =>
+                setSettings((previous) => ({
+                  ...previous,
+                  timeZone: event.target.value,
                 }))
               }
               className="font-mono text-sm"
             />
+            <datalist id="common-time-zones">
+              <option value="UTC" />
+              <option value="Africa/Casablanca" />
+              <option value="Europe/London" />
+              <option value="Europe/Paris" />
+              <option value="America/New_York" />
+              <option value="America/Los_Angeles" />
+              <option value="Asia/Dubai" />
+              <option value="Asia/Tokyo" />
+            </datalist>
             <p className="text-[11px] text-muted-foreground">
-              The deployed default is <span className="font-mono">/api/v1</span>{" "}
-              through the same origin. An absolute HTTP(S) URL remains available
-              for explicit development overrides. Only save a backend you trust
-              with your owner credentials.
+              Use an IANA identifier. Saved timestamps remain UTC instants; only
+              entry and presentation use this zone.
             </p>
-          </div>
-
-          <div className="rounded-md border border-border bg-muted/20 px-3 py-2.5 space-y-1">
-            <p className="text-xs font-semibold">Saved API URL</p>
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "w-2 h-2 rounded-full",
-                  persistedSettings.apiBaseUrl
-                    ? "bg-orange-400"
-                    : "bg-muted-foreground",
-                )}
-              />
-              <span className="text-xs text-muted-foreground">
-                {persistedSettings.apiBaseUrl ||
-                  "Environment default (if configured)"}
-              </span>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Saving a different URL clears cached data and checks the session
-              on that backend. This does not sign you out of the previous
-              backend.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Clock3 className="h-4 w-4 text-primary" />
-            Time zone
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Controls the dashboard clock, displayed instants, and how local
-            date-time form values are converted to UTC.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-1.5">
-          <Label htmlFor="timeZone" className="text-xs font-medium">
-            IANA time zone
-          </Label>
-          <Input
-            id="timeZone"
-            type="text"
-            list="common-time-zones"
-            placeholder="Africa/Casablanca"
-            value={settings.timeZone}
-            onChange={(event) =>
-              setSettings((previous) => ({
-                ...previous,
-                timeZone: event.target.value,
-              }))
-            }
-            className="font-mono text-sm"
-          />
-          <datalist id="common-time-zones">
-            <option value="UTC" />
-            <option value="Africa/Casablanca" />
-            <option value="Europe/London" />
-            <option value="Europe/Paris" />
-            <option value="America/New_York" />
-            <option value="America/Los_Angeles" />
-            <option value="Asia/Dubai" />
-            <option value="Asia/Tokyo" />
-          </datalist>
-          <p className="text-[11px] text-muted-foreground">
-            Use an IANA identifier. Saved timestamps remain UTC instants; only
-            entry and presentation use this zone.
-          </p>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Domain Visibility */}
       <Card>
@@ -313,6 +312,6 @@ export default function SettingsPage() {
       <p className="text-[11px] text-muted-foreground text-center pb-4">
         Settings are stored locally in your browser.
       </p>
-    </div>
+    </ModulePage>
   );
 }

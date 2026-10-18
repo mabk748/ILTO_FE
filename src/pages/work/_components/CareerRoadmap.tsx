@@ -30,10 +30,10 @@ const CATEGORY_STYLES: Record<CareerMilestone["category"], string> = {
 };
 
 const CERT_STATUS_STYLES: Record<CertStatus, string> = {
-  in_progress: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  in_progress: "bg-info/12 text-info border-info/25",
   planned: "bg-muted text-muted-foreground border-border",
-  completed: "bg-green-500/15 text-green-400 border-green-500/30",
-  expired: "bg-red-500/15 text-red-400 border-red-500/30",
+  completed: "bg-success/12 text-success border-success/25",
+  expired: "bg-destructive/12 text-destructive border-destructive/25",
 };
 
 export default function CareerRoadmap({ milestones, certs }: Props) {
@@ -60,7 +60,7 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
               <div key={m.id} className="flex gap-3">
                 <div className="flex flex-col items-center">
                   {done ? (
-                    <CheckCircle className="h-4 w-4 text-green-400 mt-0.5 shrink-0" />
+                    <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                   ) : (
                     <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                   )}
@@ -94,9 +94,9 @@ export default function CareerRoadmap({ milestones, certs }: Props) {
                     className={cn(
                       "text-xs mt-1",
                       done
-                        ? "text-green-400"
+                        ? "text-success"
                         : daysLeft < 0
-                          ? "text-red-400"
+                          ? "text-destructive"
                           : "text-muted-foreground",
                     )}
                   >

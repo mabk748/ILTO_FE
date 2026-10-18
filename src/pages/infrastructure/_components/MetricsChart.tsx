@@ -28,14 +28,37 @@ export default function MetricsChart({
 }: Props) {
   const timeZone = useTimeZone();
   const data = buildChartData(nodes, metricsMap, metric);
+  const observationCount = data.reduce(
+    (total, point) =>
+      total + nodes.filter((node) => typeof point[node.id] === "number").length,
+    0,
+  );
 
   return (
     <div>
       <p className="text-sm font-semibold mb-3">{title}</p>
-      {data.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-20 text-center">
+      {observationCount === 0 ? (
+        <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
           No metric observations in this window.
         </p>
+      ) : data.length === 1 ? (
+        <div className="rounded-lg border border-border/70 bg-muted/20 p-4">
+          <p className="text-xs text-muted-foreground">
+            One timestamp is stored; another is needed to establish a trend.
+          </p>
+          <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+            {nodes.map((node) => (
+              <div key={node.id} className="flex justify-between gap-3 text-sm">
+                <dt className="truncate text-muted-foreground">{node.name}</dt>
+                <dd className="font-mono font-semibold tabular-nums">
+                  {typeof data[0][node.id] === "number"
+                    ? `${Number(data[0][node.id]).toFixed(1)}%`
+                    : "Unavailable"}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </div>
       ) : (
         <ResponsiveContainer width="100%" height={220}>
           <AreaChart
@@ -65,10 +88,12 @@ export default function MetricsChart({
                 </linearGradient>
               ))}
             </defs>
-            <CartesianGrid
-              strokeDasharray="3 3"
-              stroke="oklch(0.25 0.04 265)"
-            />
+            {data.length > 2 && (
+              <CartesianGrid
+                strokeDasharray="3 3"
+                stroke="oklch(0.25 0.04 265)"
+              />
+            )}
             <XAxis
               dataKey="timestamp"
               tick={{ fontSize: 10, fill: "oklch(0.60 0.05 265)" }}
@@ -124,7 +149,7 @@ export default function MetricsChart({
                 stroke={nodeColor(node.id)}
                 fill={`url(#grad-${metric}-${node.id})`}
                 strokeWidth={1.5}
-                dot={false}
+                dot={data.length <= 2 ? { r: 3 } : false}
                 activeDot={{ r: 3 }}
               />
             ))}

@@ -5,31 +5,27 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs.tsx";
 import { Brain, Zap, ScrollText } from "lucide-react";
+import { ModuleHeader, ModulePage } from "@/components/layout/ModulePage.tsx";
 import CorrelationCharts from "./_components/CorrelationCharts.tsx";
 import TriggerBuilder from "./_components/TriggerBuilder.tsx";
 import TriggerLog from "./_components/TriggerLog.tsx";
 
 export default function IntelligencePage() {
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <Brain className="h-6 w-6 text-primary shrink-0" />
-        <div>
-          <h1
-            className="text-2xl font-bold"
-            style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-          >
-            Intelligence
-          </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Cross-domain comparisons and automation rules
-          </p>
-        </div>
-      </div>
+    <ModulePage>
+      <ModuleHeader
+        title="Intelligence"
+        description="Compare confirmed cross-domain observations and manage existing automation rules."
+        icon={Brain}
+        eyebrow="Cross-domain intelligence"
+      />
 
       <Tabs defaultValue="correlations">
-        <TabsList>
+        <TabsList
+          variant="line"
+          className="w-full justify-start"
+          aria-label="Intelligence views"
+        >
           <TabsTrigger
             value="correlations"
             className="flex items-center gap-1.5"
@@ -59,6 +55,6 @@ export default function IntelligencePage() {
           <TriggerLog />
         </TabsContent>
       </Tabs>
-    </div>
+    </ModulePage>
   );
 }

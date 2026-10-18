@@ -17,9 +17,9 @@ const typeLabel: Record<DocumentType, string> = {
 };
 
 const statusStyle: Record<DocumentRecord["status"], string> = {
-  expired: "bg-red-500/20 text-red-400 border-red-500/40",
-  expiring_soon: "bg-amber-500/20 text-amber-400 border-amber-500/40",
-  valid: "bg-emerald-500/20 text-emerald-400 border-emerald-500/40",
+  expired: "bg-destructive/12 text-destructive border-destructive/25",
+  expiring_soon: "bg-warning/12 text-warning border-warning/25",
+  valid: "bg-success/12 text-success border-success/25",
 };
 
 const statusLabel: Record<DocumentRecord["status"], string> = {
@@ -63,7 +63,7 @@ export default function DocumentsView({ documents }: Props) {
       </div>
       {/* Alert banners */}
       {expired.length > 0 && (
-        <div className="flex items-start gap-2 px-3 py-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+        <div className="flex items-start gap-2 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-3 text-sm text-destructive">
           <ShieldAlert className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
             <strong>
@@ -74,7 +74,7 @@ export default function DocumentsView({ documents }: Props) {
         </div>
       )}
       {expiringSoon.length > 0 && (
-        <div className="flex items-start gap-2 px-3 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
+        <div className="flex items-start gap-2 rounded-lg border border-warning/25 bg-warning/10 px-3 py-3 text-sm text-warning">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>
             <strong>{expiringSoon.length} expiring soon:</strong>{" "}

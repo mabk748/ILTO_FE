@@ -90,7 +90,7 @@ export default function ComplianceChecklist({ items }: Props) {
                   className={cn(
                     "text-[11px] px-2 py-0.5 rounded-full border font-medium",
                     percent === 100
-                      ? "bg-green-500/15 text-green-400 border-green-500/30"
+                      ? "bg-success/12 text-success border-success/25"
                       : "bg-muted text-muted-foreground border-border",
                   )}
                 >

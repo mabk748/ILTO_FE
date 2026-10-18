@@ -48,7 +48,7 @@ docker run --rm --entrypoint nginx ilto-frontend:latest -t
 Run from this repository on the server:
 
 ```bash
-npm run deploy -- --apply
+npm run deploy -- --no-bump --apply
 ```
 
 The guarded script creates the shared network with:

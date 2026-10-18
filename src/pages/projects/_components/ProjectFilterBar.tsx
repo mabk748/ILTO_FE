@@ -1,6 +1,11 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 import { useProjectScope } from "../project-scope.ts";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  EmptyState,
+  EmptyStateActions,
+  EmptyStateDescription,
+} from "@/components/ui/empty-state.tsx";
 
 export interface FilterOption {
   value: string;
@@ -136,7 +141,7 @@ export function ProjectFilterBar({
 }) {
   const filtered = activeLabels.length > 0;
   return (
-    <div className="space-y-2 rounded-lg border bg-card p-3">
+    <div className="space-y-3 rounded-xl border border-border/70 bg-card/55 p-3 sm:p-4">
       <div className="flex flex-wrap items-end gap-3">{children}</div>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
         <div className="flex flex-wrap items-center gap-2" aria-live="polite">
@@ -172,17 +177,15 @@ export function FilteredEmptyState({
   onClear: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-      <p>No {noun} match the current filters.</p>
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        className="mt-3"
-        onClick={onClear}
-      >
-        Clear filters
-      </Button>
-    </div>
+    <EmptyState>
+      <EmptyStateDescription>
+        No {noun} match the current filters.
+      </EmptyStateDescription>
+      <EmptyStateActions>
+        <Button type="button" size="sm" variant="outline" onClick={onClear}>
+          Clear filters
+        </Button>
+      </EmptyStateActions>
+    </EmptyState>
   );
 }

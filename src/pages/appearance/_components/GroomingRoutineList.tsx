@@ -54,7 +54,7 @@ export default function GroomingRoutineList({
         <span className="text-xs text-muted-foreground">Imported records</span>
       </div>
       {dueToday > 0 && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium">
+        <div className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2 text-sm font-medium text-warning">
           <Clock className="h-4 w-4 shrink-0" />
           {dueToday} routine{dueToday > 1 ? "s" : ""} due today
         </div>
@@ -98,7 +98,7 @@ export default function GroomingRoutineList({
                     </div>
                   </div>
                   {r.streak_days > 0 && (
-                    <div className="flex items-center gap-1 text-amber-400 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1 text-warning">
                       <Flame className="h-4 w-4" />
                       <span className="text-xs font-semibold">
                         {r.streak_days}d
@@ -227,7 +227,7 @@ export default function GroomingRoutineList({
                         className={cn(
                           "text-xs",
                           i < log.rating
-                            ? "text-amber-400"
+                            ? "text-warning"
                             : "text-muted-foreground/30",
                         )}
                       >

@@ -7,6 +7,12 @@ import { Button } from "@/components/ui/button.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Badge } from "@/components/ui/badge.tsx";
 import {
+  EmptyState,
+  EmptyStateDescription,
+  EmptyStateMedia,
+  EmptyStateTitle,
+} from "@/components/ui/empty-state.tsx";
+import {
   getNotifications,
   markAllRead,
   markNotificationRead,
@@ -42,8 +48,8 @@ const SEVERITY_STYLES: Record<
     badge: "bg-destructive/20 text-destructive border-destructive/30",
   },
   warning: {
-    dot: "bg-orange-400",
-    badge: "bg-orange-400/20 text-orange-400 border-orange-400/30",
+    dot: "bg-warning",
+    badge: "bg-warning/12 text-warning border-warning/25",
   },
   info: {
     dot: "bg-primary",
@@ -332,15 +338,17 @@ export default function NotificationsPage() {
       ) : error ? (
         <LoadError error={error} onRetry={() => void refetch()} />
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <Bell className="h-10 w-10 text-muted-foreground mb-3" />
-          <p className="text-sm font-semibold">No notifications</p>
-          <p className="text-xs text-muted-foreground mt-1">
+        <EmptyState>
+          <EmptyStateMedia>
+            <Bell />
+          </EmptyStateMedia>
+          <EmptyStateTitle>No notifications</EmptyStateTitle>
+          <EmptyStateDescription>
             {filterStatus === "unread"
               ? "You're all caught up."
               : "Nothing to show for the current filter."}
-          </p>
-        </div>
+          </EmptyStateDescription>
+        </EmptyState>
       ) : (
         <div className="rounded-lg border border-border overflow-hidden">
           {filtered.map((n) => (

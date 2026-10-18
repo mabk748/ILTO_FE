@@ -2,8 +2,13 @@ import { useMemo, useState } from "react";
 import { addMonths, addWeeks } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays } from "lucide-react";
+import { ModuleHeader, ModulePage } from "@/components/layout/ModulePage.tsx";
 import { useTimeZone } from "@/components/providers/settings-context.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import {
+  EmptyState,
+  EmptyStateDescription,
+} from "@/components/ui/empty-state.tsx";
 import LoadError from "@/components/LoadError.tsx";
 import { getHorizonEntries } from "@/lib/api/horizon.ts";
 import type { HorizonEntry } from "@/lib/api/types.ts";
@@ -45,24 +50,16 @@ export default function HorizonPage() {
   };
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
-          <CalendarDays className="mt-0.5 h-6 w-6 shrink-0 text-primary" />
-          <div>
-            <h1
-              className="text-2xl font-bold"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
-              Horizon
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              What is happening across your life and ILTO.
-            </p>
-          </div>
-        </div>
-        <HorizonAddMenu onCalendarBlock={() => setItemMode("create")} />
-      </div>
+    <ModulePage>
+      <ModuleHeader
+        title="Horizon"
+        description="See dated work across ILTO, then add or inspect the next calendar commitment."
+        icon={CalendarDays}
+        eyebrow="Time horizon"
+        actions={
+          <HorizonAddMenu onCalendarBlock={() => setItemMode("create")} />
+        }
+      />
 
       {entries.error ? (
         <LoadError
@@ -77,13 +74,12 @@ export default function HorizonPage() {
       ) : (
         <>
           {entries.data.length === 0 && (
-            <div
-              role="status"
-              className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground"
-            >
-              Nothing is scheduled in this period. Add a calendar block or
-              create a dated item in its module.
-            </div>
+            <EmptyState role="status" className="items-start p-4 text-left">
+              <EmptyStateDescription className="max-w-none">
+                Nothing is scheduled in this period. Add a calendar block or
+                create a dated item in its module.
+              </EmptyStateDescription>
+            </EmptyState>
           )}
           <HorizonCalendar
             anchor={anchor}
@@ -113,6 +109,6 @@ export default function HorizonPage() {
           onClose={closeItemDialog}
         />
       )}
-    </div>
+    </ModulePage>
   );
 }

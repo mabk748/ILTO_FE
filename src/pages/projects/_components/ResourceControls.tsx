@@ -1,4 +1,11 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FormEvent,
+} from "react";
 import { Button } from "@/components/ui/button.tsx";
 import { Input } from "@/components/ui/input.tsx";
 import { Label } from "@/components/ui/label.tsx";
@@ -26,9 +33,11 @@ import { TASK_CATEGORIES, TASK_CATEGORY_LABELS } from "../task-model.ts";
 export default function ResourceControls({
   target,
   autoOpen = false,
+  triggerVariant,
 }: {
   target: EditorTarget;
   autoOpen?: boolean;
+  triggerVariant?: ComponentProps<typeof Button>["variant"];
 }) {
   const [mode, setMode] = useState<"edit" | "delete" | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
@@ -54,7 +63,7 @@ export default function ResourceControls({
       <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
-          variant={target.record ? "outline" : "default"}
+          variant={target.record ? "outline" : (triggerVariant ?? "default")}
           disabled={disabled}
           aria-label={
             target.record

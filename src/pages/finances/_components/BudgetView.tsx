@@ -59,7 +59,7 @@ function CurrencyBudget({
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className={`h-full rounded-full transition-all ${percentage > 90 ? "bg-red-500" : percentage > 70 ? "bg-yellow-500" : "bg-primary"}`}
+              className={`h-full rounded-full transition-all ${percentage > 90 ? "bg-destructive" : percentage > 70 ? "bg-warning" : "bg-primary"}`}
               style={{
                 width: masked ? "0%" : `${Math.min(percentage, 100)}%`,
               }}
@@ -83,11 +83,11 @@ function CurrencyBudget({
         </CardHeader>
         <CardContent>
           {masked ? (
-            <p className="py-20 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               Financial chart hidden.
             </p>
           ) : pieData.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               No spending to chart for {currency}.
             </p>
           ) : (
@@ -204,7 +204,7 @@ export default function BudgetView({
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                     <div
-                      className={`h-full rounded-full ${percentage > 90 ? "bg-red-500" : percentage > 70 ? "bg-yellow-500" : "bg-primary"}`}
+                      className={`h-full rounded-full ${percentage > 90 ? "bg-destructive" : percentage > 70 ? "bg-warning" : "bg-primary"}`}
                       style={{
                         width: masked ? "0%" : `${Math.min(percentage, 100)}%`,
                         background:

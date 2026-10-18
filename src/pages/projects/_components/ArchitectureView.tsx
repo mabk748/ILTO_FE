@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { ModuleSectionHeader } from "@/components/layout/ModulePage.tsx";
 import type { ProjectRepository } from "@/lib/api/types.ts";
 import {
   githubRepositoryLinks,
@@ -120,17 +121,11 @@ export default function ArchitectureView() {
   return (
     <section className="space-y-5" aria-labelledby="architecture-heading">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <h2
-            id="architecture-heading"
-            className="flex items-center gap-2 text-xl font-semibold"
-          >
-            <Network className="h-5 w-5 text-primary" />
-            Architecture
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Manage source repositories and open external architecture views.
-          </p>
+        <div id="architecture-heading">
+          <ModuleSectionHeader
+            title="Architecture"
+            description="Manage source repositories and open external architecture views."
+          />
         </div>
         {projectId === undefined && (
           <label className="w-full space-y-1 text-xs sm:w-72">

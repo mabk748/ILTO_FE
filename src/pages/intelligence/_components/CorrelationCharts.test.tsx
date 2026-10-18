@@ -74,19 +74,14 @@ function setup() {
 }
 
 describe("Intelligence correlation charts", () => {
-  it("renders explicit honest empty chart states without inventing sleep/commit data", async () => {
+  it("collapses fully absent comparisons into one honest empty state", async () => {
     fetchMock.mockImplementation(() => Promise.resolve(Response.json([])));
     setup();
     expect(
-      await screen.findByText(
-        "No dated sleep and commit observations are stored yet.",
-      ),
+      await screen.findByText("No comparison observations yet"),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText("No stored comparison points yet."),
-    ).toHaveLength(2);
-    expect(
-      screen.getByText("No stored net-worth points yet."),
+      screen.getByText(/after the source modules have overlapping dated/),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("line-chart")).not.toBeInTheDocument();
   });
@@ -108,6 +103,11 @@ describe("Intelligence correlation charts", () => {
       .mockResolvedValueOnce(Response.json([]));
     setup();
     const chart = await screen.findByTestId("line-chart");
+    expect(
+      screen.getByText(
+        "One observation is shown; another is needed to establish a trend.",
+      ),
+    ).toBeVisible();
     expect(chart).toHaveAttribute(
       "data-points",
       expect.stringContaining('"commits":null'),

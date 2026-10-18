@@ -234,10 +234,10 @@ describe("Project workspace with mocked backend", () => {
       name: "Project overview",
     });
     expect(
-      within(overview).getByText("Total Tasks").parentElement,
+      within(overview).getByText("Total Tasks").closest("a"),
     ).toHaveTextContent("2");
     expect(
-      within(overview).getByText("Tasks completed").parentElement,
+      within(overview).getByText("Tasks completed").closest("a"),
     ).toHaveTextContent("1 / 2");
     expect(
       within(overview)
@@ -297,16 +297,19 @@ describe("Project workspace with mocked backend", () => {
       name: "Project overview",
     });
     expect(
-      within(overview).getByText("No percentage without Tasks"),
+      within(overview).getByText("No Tasks in this Project"),
     ).toBeVisible();
     expect(
       within(overview).getByText(
-        "No percentage: active Sprints have zero assigned story points.",
+        "1 active Sprint has no assigned story points.",
       ),
     ).toBeVisible();
     expect(
-      within(overview).getByText("No percentage without Milestones."),
+      within(overview).getByText(
+        "No Milestones have been added to this Project.",
+      ),
     ).toBeVisible();
+    expect(within(overview).queryByText("Total Tasks")).not.toBeInTheDocument();
     expect(within(overview).queryByRole("progressbar")).not.toBeInTheDocument();
   });
   it("opens a Project from the existing list and redirects to NOW without selecting a task", async () => {
@@ -523,6 +526,17 @@ describe("Project workspace with mocked backend", () => {
       within(queue).getByRole("link", { name: "Open matching Board view" }),
     ).toHaveAttribute("href", "/projects/p1/explore?view=board&sprint=s1");
     expect(screen.queryByText("Finished task")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Filter queue by priority"), {
+      target: { value: "critical" },
+    });
+    expect(location()).toContain("queue_priority=critical");
+    expect(screen.getByText("Queue 6")).toBeVisible();
+    expect(screen.queryByText("Queue 0")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Clear queue filters" }),
+    );
+    expect(location()).not.toContain("queue_priority");
+    expect(screen.getByText("Queue 0")).toBeVisible();
   });
 
   it.each([
@@ -696,7 +710,7 @@ describe("Project workspace with mocked backend", () => {
     tab("overview");
     const overview = screen.getByRole("region", { name: "Project overview" });
     expect(
-      within(overview).getByText("Open tasks").parentElement,
+      within(overview).getByText("Open tasks").closest("a"),
     ).toHaveTextContent("Open tasks0");
     area("NEXT");
     expect(
@@ -772,13 +786,25 @@ describe("Project workspace with mocked backend", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("returns to legacy management without hiding other Projects or imports", async () => {
+  it("returns to the directory and keeps legacy management accessible", async () => {
     setup("/projects/p1/explore?view=architecture");
     await screen.findByRole("heading", { name: "EXPLORE" });
     fireEvent.click(screen.getByRole("link", { name: "Back to Projects" }));
     expect(
       await screen.findByRole("link", { name: "Open project: Project Beta" }),
     ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Directory" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    fireEvent.click(screen.getByRole("link", { name: "Management" }));
+    expect(
+      await screen.findByRole("heading", { name: "Project management" }),
+    ).toBeVisible();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Projects" }), {
+      button: 0,
+      ctrlKey: false,
+    });
     expect(screen.getByRole("tab", { name: "Projects" })).toHaveAttribute(
       "aria-selected",
       "true",

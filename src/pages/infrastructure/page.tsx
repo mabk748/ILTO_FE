@@ -8,13 +8,20 @@ import {
 } from "@/lib/api/infrastructure.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import { Card, CardContent } from "@/components/ui/card.tsx";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card.tsx";
-import { Server, GitBranch, RefreshCw } from "lucide-react";
+  EmptyState,
+  EmptyStateActions,
+  EmptyStateDescription,
+  EmptyStateMedia,
+  EmptyStateTitle,
+} from "@/components/ui/empty-state.tsx";
+import { Server, RefreshCw } from "lucide-react";
+import {
+  ModuleHeader,
+  ModulePage,
+  ModuleSectionHeader,
+} from "@/components/layout/ModulePage.tsx";
 import NodeCard from "./_components/NodeCard.tsx";
 import MetricsChart from "./_components/MetricsChart.tsx";
 import GitActivityTable from "./_components/GitActivityTable.tsx";
@@ -55,47 +62,42 @@ export default function InfrastructurePage() {
     refetchInterval: 30_000,
   });
   const nodes = data?.nodes ?? [];
+  const historicalObservationCount = Object.values(
+    data?.historicalMetrics ?? {},
+  ).reduce((total, observations) => total + observations.length, 0);
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Server className="h-6 w-6 text-primary shrink-0" />
-          <div>
-            <h1
-              className="text-2xl font-bold"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+    <ModulePage>
+      <ModuleHeader
+        title="Infrastructure"
+        description="Inspect registered nodes, stored system readouts and repository activity."
+        icon={Server}
+        eyebrow="Infrastructure operating domain"
+        actions={
+          <>
+            <NodeControls />
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs"
+              onClick={() => void refetch()}
+              disabled={isFetching}
             >
-              Infrastructure
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              Stored readouts and registered node metadata
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <NodeControls />
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-muted-foreground"
-            onClick={() => void refetch()}
-            disabled={isFetching}
-          >
-            <RefreshCw
-              className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
-            />
-            <span>
-              Refreshed{" "}
-              {dataUpdatedAt
-                ? formatDistanceToNow(new Date(dataUpdatedAt), {
-                    addSuffix: true,
-                  })
-                : "never"}
-            </span>
-          </Button>
-        </div>
-      </div>
+              <RefreshCw
+                className={`h-3 w-3 ${isFetching ? "animate-spin" : ""}`}
+              />
+              <span>
+                Refreshed{" "}
+                {dataUpdatedAt
+                  ? formatDistanceToNow(new Date(dataUpdatedAt), {
+                      addSuffix: true,
+                    })
+                  : "never"}
+              </span>
+            </Button>
+          </>
+        }
+      />
 
       {error ? (
         <LoadError
@@ -105,10 +107,11 @@ export default function InfrastructurePage() {
         />
       ) : (
         <>
-          <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Nodes
-            </h2>
+          <section className="space-y-4">
+            <ModuleSectionHeader
+              title="Nodes"
+              description="Registered machines and their latest confirmed metric snapshot."
+            />
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 {Array.from({ length: 4 }).map((_, index) => (
@@ -126,21 +129,42 @@ export default function InfrastructurePage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">
-                No nodes registered yet. Create a node to track stored readouts.
-              </p>
+              <EmptyState className="py-6 md:py-6">
+                <EmptyStateMedia>
+                  <Server aria-hidden="true" />
+                </EmptyStateMedia>
+                <EmptyStateTitle>No nodes registered</EmptyStateTitle>
+                <EmptyStateDescription>
+                  Register a node before ILTO can display infrastructure
+                  readouts and usage history.
+                </EmptyStateDescription>
+                <EmptyStateActions>
+                  <NodeControls />
+                </EmptyStateActions>
+              </EmptyState>
             )}
           </section>
 
-          <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              24h Usage
-            </h2>
+          <section className="space-y-4">
+            <ModuleSectionHeader
+              title="24h usage"
+              description="Historical CPU and RAM samples returned for the current node set."
+            />
             {loading ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Skeleton className="h-64 w-full" />
                 <Skeleton className="h-64 w-full" />
               </div>
+            ) : historicalObservationCount === 0 ? (
+              <EmptyState className="py-6 md:py-6">
+                <EmptyStateTitle>
+                  No usage observations in this window
+                </EmptyStateTitle>
+                <EmptyStateDescription>
+                  CPU and RAM charts appear after a registered node reports
+                  stored metrics.
+                </EmptyStateDescription>
+              </EmptyState>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card>
@@ -167,18 +191,13 @@ export default function InfrastructurePage() {
             )}
           </section>
 
-          <section>
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-              Git Activity
-            </h2>
+          <section className="space-y-4">
+            <ModuleSectionHeader
+              title="Git activity"
+              description="Repository activity supplied by the infrastructure backend."
+            />
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <GitBranch className="h-4 w-4 text-primary" />
-                  Repository Activity
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 {loading ? (
                   <div className="space-y-3">
                     {Array.from({ length: 3 }).map((_, index) => (
@@ -193,6 +212,6 @@ export default function InfrastructurePage() {
           </section>
         </>
       )}
-    </div>
+    </ModulePage>
   );
 }

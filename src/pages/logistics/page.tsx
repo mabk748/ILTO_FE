@@ -8,19 +8,23 @@ import {
 } from "@/lib/api/logistics.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { MapPin } from "lucide-react";
+import {
+  ModuleHeader,
+  ModulePage,
+  ModuleTabs,
+} from "@/components/layout/ModulePage.tsx";
 import EventCalendar from "./_components/EventCalendar.tsx";
 import ChecklistsView from "./_components/ChecklistsView.tsx";
 import DocumentsView from "./_components/DocumentsView.tsx";
-import { cn } from "@/lib/utils.ts";
 import LoadError from "@/components/LoadError.tsx";
 import { useSearchParams } from "react-router-dom";
 
 type Tab = "calendar" | "checklists" | "documents";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "calendar", label: "Calendar" },
-  { id: "checklists", label: "Checklists" },
-  { id: "documents", label: "Documents" },
+const TABS: { id: Tab; label: string; detail: string }[] = [
+  { id: "calendar", label: "Calendar", detail: "Trips and events" },
+  { id: "checklists", label: "Checklists", detail: "Reusable preparation" },
+  { id: "documents", label: "Documents", detail: "Important records" },
 ];
 
 export default function LogisticsPage() {
@@ -51,33 +55,20 @@ export default function LogisticsPage() {
   });
 
   return (
-    <div className="p-4 md:p-6 space-y-5">
-      <div className="flex items-center gap-3">
-        <MapPin className="h-6 w-6 text-primary shrink-0" />
-        <h1
-          className="text-2xl font-bold"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          Logistics
-        </h1>
-      </div>
+    <ModulePage>
+      <ModuleHeader
+        title="Logistics"
+        description="Coordinate trips, dated events, preparation checklists and important documents."
+        icon={MapPin}
+        eyebrow="Logistics operating domain"
+      />
 
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors cursor-pointer",
-              tab === t.id
-                ? "border-primary text-primary"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <ModuleTabs
+        label="Logistics views"
+        items={TABS}
+        value={tab}
+        onValueChange={setTab}
+      />
 
       {error ? (
         <LoadError error={error} onRetry={() => void refetch()} />
@@ -104,6 +95,6 @@ export default function LogisticsPage() {
           )}
         </>
       )}
-    </div>
+    </ModulePage>
   );
 }

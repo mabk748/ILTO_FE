@@ -172,7 +172,7 @@ export default function LearningDashboardView({
                           {goal.provider} · {goal.type}
                         </p>
                       </div>
-                      <span className="rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[11px] font-medium text-green-400">
+                      <span className="rounded-full border border-success/25 bg-success/10 px-2 py-0.5 text-[11px] font-medium text-success">
                         Active
                       </span>
                     </div>

@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card.tsx";
 import { Progress } from "@/components/ui/progress.tsx";
+import { ModuleSectionHeader } from "@/components/layout/ModulePage.tsx";
 import { formatCalendarDate } from "@/lib/calendar-date.ts";
 import { cn } from "@/lib/utils.ts";
 import { ChevronDown, ChevronRight, Zap } from "lucide-react";
@@ -27,7 +28,7 @@ const SPRINT_FILTER_KEYS = ["project", "sprint_status"] as const;
 const STATUS_CLASSES: Record<SprintStatus, string> = {
   planned: "bg-muted text-muted-foreground border-border",
   active: "bg-primary/20 text-primary border-primary/30",
-  completed: "bg-foreground/10 text-foreground border-foreground/30",
+  completed: "bg-success/12 text-success border-success/25",
 };
 
 interface SprintWithTasks extends Sprint {
@@ -44,7 +45,7 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
       : 0;
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-border/80 bg-card/55 shadow-sm">
       <button
         aria-expanded={expanded}
         onClick={() => setExpanded(!expanded)}
@@ -181,6 +182,10 @@ export default function SprintList() {
 
   return (
     <div className="space-y-6">
+      <ModuleSectionHeader
+        title="Sprint planning"
+        description="Inspect Sprint goals, delivery progress and backend-calculated velocity."
+      />
       <ProjectFilterBar
         total={allSprints.length}
         shown={sprints.length}
@@ -225,7 +230,7 @@ export default function SprintList() {
         ))}
       </div>
 
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold flex items-center gap-2">
             <Zap className="h-4 w-4 text-primary" />

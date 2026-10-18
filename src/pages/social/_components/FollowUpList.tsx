@@ -13,9 +13,9 @@ interface Props {
 }
 
 const PRIORITY_STYLES: Record<Priority, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/30",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+  critical: "bg-destructive/12 text-destructive border-destructive/25",
+  high: "bg-warning/12 text-warning border-warning/25",
+  medium: "bg-info/12 text-info border-info/25",
   low: "bg-muted text-muted-foreground border-border",
 };
 
@@ -94,7 +94,7 @@ export default function FollowUpList({ followUps }: Props) {
                       {followUp.priority}
                     </span>
                     {isOverdue && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/30">
+                      <span className="rounded-full border border-destructive/25 bg-destructive/12 px-1.5 py-0.5 text-[10px] text-destructive">
                         overdue
                       </span>
                     )}
@@ -121,7 +121,7 @@ export default function FollowUpList({ followUps }: Props) {
                   className={cn(
                     "cursor-pointer transition-colors shrink-0",
                     isDone
-                      ? "text-green-400"
+                      ? "text-success"
                       : "text-muted-foreground hover:text-primary",
                   )}
                 >

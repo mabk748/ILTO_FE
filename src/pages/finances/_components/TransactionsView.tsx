@@ -120,7 +120,7 @@ export default function TransactionsView({
                       {transaction.type}
                     </td>
                     <td
-                      className={`whitespace-nowrap py-2 text-right font-medium ${transaction.type === "income" ? "text-green-400" : transaction.type === "expense" ? "text-red-400" : ""}`}
+                      className={`whitespace-nowrap py-2 text-right font-medium ${transaction.type === "income" ? "text-success" : transaction.type === "expense" ? "text-destructive" : ""}`}
                     >
                       {transaction.type === "income"
                         ? "+"

@@ -119,73 +119,84 @@ function CurrencyPortfolio({
         </CardHeader>
         <CardContent>
           {masked ? (
-            <p className="py-20 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               Financial chart hidden.
             </p>
           ) : chartData.length === 0 ? (
-            <p className="py-20 text-center text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
               No net-worth snapshots available for {currency}.
             </p>
           ) : (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                <XAxis
-                  dataKey="timestamp"
-                  tick={{ fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value: number) =>
-                    formatInstant(value, timeZone, { month: "short" })
-                  }
-                />
-                <YAxis
-                  tick={{ fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) =>
-                    formatCompactMoney(value as number, currency)
-                  }
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: "var(--card)",
-                    border: "1px solid var(--border)",
-                    borderRadius: 6,
-                    fontSize: 12,
-                  }}
-                  labelFormatter={(value) =>
-                    formatInstant(Number(value), timeZone, {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                    })
-                  }
-                  formatter={(value: unknown) => [
-                    typeof value === "number"
-                      ? formatMoney(value, currency)
-                      : String(value ?? ""),
-                    "",
-                  ]}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="assets"
-                  stroke="#6366f1"
-                  fill="#6366f120"
-                  strokeWidth={2}
-                  stackId="1"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="liabilities"
-                  stroke="#ef4444"
-                  fill="#ef444420"
-                  strokeWidth={2}
-                  stackId="2"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <>
+              {chartData.length <= 2 && (
+                <p className="mb-3 text-xs text-muted-foreground">
+                  {chartData.length === 1
+                    ? "One snapshot is shown; another is needed to establish a trend."
+                    : "Two snapshots are shown as a comparison, not an established trend."}
+                </p>
+              )}
+              <ResponsiveContainer width="100%" height={200}>
+                <AreaChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis
+                    dataKey="timestamp"
+                    tick={{ fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value: number) =>
+                      formatInstant(value, timeZone, { month: "short" })
+                    }
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10 }}
+                    tickLine={false}
+                    axisLine={false}
+                    tickFormatter={(value) =>
+                      formatCompactMoney(value as number, currency)
+                    }
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "var(--card)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 6,
+                      fontSize: 12,
+                    }}
+                    labelFormatter={(value) =>
+                      formatInstant(Number(value), timeZone, {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    }
+                    formatter={(value: unknown) => [
+                      typeof value === "number"
+                        ? formatMoney(value, currency)
+                        : String(value ?? ""),
+                      "",
+                    ]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="assets"
+                    stroke="#6366f1"
+                    fill="#6366f120"
+                    strokeWidth={2}
+                    stackId="1"
+                    dot={chartData.length <= 2 ? { r: 3 } : false}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="liabilities"
+                    stroke="#ef4444"
+                    fill="#ef444420"
+                    strokeWidth={2}
+                    stackId="2"
+                    dot={chartData.length <= 2 ? { r: 3 } : false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </>
           )}
         </CardContent>
       </Card>
@@ -233,8 +244,8 @@ function CurrencyPortfolio({
                         className={cn(
                           "py-2 text-xs font-medium",
                           trade.action === "buy"
-                            ? "text-green-400"
-                            : "text-red-400",
+                            ? "text-success"
+                            : "text-destructive",
                         )}
                       >
                         {trade.action.toUpperCase()}

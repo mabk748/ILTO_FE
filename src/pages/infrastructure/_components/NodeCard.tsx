@@ -7,8 +7,8 @@ import { Cpu, MemoryStick, HardDrive } from "lucide-react";
 import NodeControls from "./NodeControls.tsx";
 
 const STATUS_DOT: Record<NodeStatus, string> = {
-  online: "bg-green-500",
-  degraded: "bg-yellow-500",
+  online: "bg-success",
+  degraded: "bg-warning",
   offline: "bg-destructive",
 };
 
@@ -19,21 +19,21 @@ const STATUS_TEXT: Record<NodeStatus, string> = {
 };
 
 const STATUS_TEXT_CLASS: Record<NodeStatus, string> = {
-  online: "text-green-500",
-  degraded: "text-yellow-500",
+  online: "text-success",
+  degraded: "text-warning",
   offline: "text-destructive",
 };
 
 function metricColor(value: number): string {
   if (value >= 80) return "text-destructive";
-  if (value >= 60) return "text-yellow-500";
-  return "text-green-500";
+  if (value >= 60) return "text-warning";
+  return "text-success";
 }
 
 function metricBarClass(value: number): string {
   if (value >= 80) return "[&>div]:bg-destructive";
-  if (value >= 60) return "[&>div]:bg-yellow-500";
-  return "[&>div]:bg-green-500";
+  if (value >= 60) return "[&>div]:bg-warning";
+  return "[&>div]:bg-success";
 }
 
 interface Props {

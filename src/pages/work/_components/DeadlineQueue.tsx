@@ -17,9 +17,9 @@ interface Props {
 }
 
 const PRIORITY_STYLES: Record<Priority, string> = {
-  critical: "bg-red-500/15 text-red-400 border-red-500/30",
-  high: "bg-orange-500/15 text-orange-400 border-orange-500/30",
-  medium: "bg-yellow-500/15 text-yellow-400 border-yellow-500/30",
+  critical: "bg-destructive/12 text-destructive border-destructive/25",
+  high: "bg-warning/12 text-warning border-warning/25",
+  medium: "bg-info/12 text-info border-info/25",
   low: "bg-muted text-muted-foreground border-border",
 };
 
@@ -32,8 +32,8 @@ const PRIORITY_ORDER: Record<Priority, number> = {
 
 const STATUS_STYLES: Record<WorkDeadline["status"], string> = {
   pending: "bg-muted text-muted-foreground border-border",
-  completed: "bg-green-500/15 text-green-400 border-green-500/30",
-  overdue: "bg-red-500/15 text-red-400 border-red-500/30",
+  completed: "bg-success/12 text-success border-success/25",
+  overdue: "bg-destructive/12 text-destructive border-destructive/25",
 };
 
 function DeadlineCompletionControl({ deadline }: { deadline: WorkDeadline }) {
@@ -191,7 +191,9 @@ export default function DeadlineQueue({
                     <p
                       className={cn(
                         "text-xs font-medium",
-                        isOverdue ? "text-red-400" : "text-muted-foreground",
+                        isOverdue
+                          ? "text-destructive"
+                          : "text-muted-foreground",
                       )}
                     >
                       {statusText}

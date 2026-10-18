@@ -240,29 +240,39 @@ export default function LearningGoalPage() {
           </CardHeader>
           <CardContent className="px-5">
             {scoreData.length === 0 ? (
-              <p className="py-12 text-center text-sm text-muted-foreground">
+              <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
                 No assessment scores yet.
               </p>
             ) : (
-              <div className="h-56" aria-label="Assessment score trend chart">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={scoreData}>
-                    <XAxis dataKey="label" tick={{ fontSize: 11 }} />
-                    <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
-                    <Tooltip
-                      labelFormatter={(_, payload) =>
-                        payload[0]?.payload.timestamp ?? ""
-                      }
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="score"
-                      stroke="var(--primary)"
-                      strokeWidth={2}
-                      connectNulls={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div>
+                {scoreData.length <= 2 && (
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    {scoreData.length === 1
+                      ? "One score is shown; another is needed to establish a trend."
+                      : "Two scores are shown as a comparison, not an established trend."}
+                  </p>
+                )}
+                <div className="h-56" aria-label="Assessment score trend chart">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={scoreData}>
+                      <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                      <YAxis domain={[0, 100]} tick={{ fontSize: 11 }} />
+                      <Tooltip
+                        labelFormatter={(_, payload) =>
+                          payload[0]?.payload.timestamp ?? ""
+                        }
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="score"
+                        stroke="var(--primary)"
+                        strokeWidth={2}
+                        connectNulls={false}
+                        dot={scoreData.length <= 2 ? { r: 3 } : false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
           </CardContent>

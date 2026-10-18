@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen } from "lucide-react";
+import { ModuleHeader, ModulePage } from "@/components/layout/ModulePage.tsx";
 import {
   getAssessmentAttempts,
   getBottlenecks,
@@ -116,37 +117,29 @@ export default function LearningPage() {
   const dueCount = dueCards.data?.length ?? 0;
 
   return (
-    <div className="space-y-5 p-4 md:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <BookOpen className="h-6 w-6 shrink-0 text-primary" />
-          <div>
-            <h1
-              className="text-2xl font-bold"
-              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-            >
-              Learning
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Execute today, remove blockers, and monitor exam readiness.
-            </p>
-          </div>
-        </div>
-        <LearningImportDialog
-          goals={goals.data ?? []}
-          schedules={schedules.data ?? []}
-          milestones={milestones.data ?? []}
-          projects={projects.data?.projects ?? []}
-          disabled={
-            loading ||
-            Boolean(error) ||
-            !goals.data ||
-            !schedules.data ||
-            !milestones.data ||
-            !projects.data
-          }
-        />
-      </div>
+    <ModulePage>
+      <ModuleHeader
+        title="Learning"
+        description="Execute today's study plan, remove evidence-backed bottlenecks and monitor exam readiness."
+        icon={BookOpen}
+        eyebrow="Learning operating domain"
+        actions={
+          <LearningImportDialog
+            goals={goals.data ?? []}
+            schedules={schedules.data ?? []}
+            milestones={milestones.data ?? []}
+            projects={projects.data?.projects ?? []}
+            disabled={
+              loading ||
+              Boolean(error) ||
+              !goals.data ||
+              !schedules.data ||
+              !milestones.data ||
+              !projects.data
+            }
+          />
+        }
+      />
 
       {error ? (
         <LoadError error={error} onRetry={() => void refetch()} />
@@ -253,6 +246,6 @@ export default function LearningPage() {
           </TabsContent>
         </Tabs>
       )}
-    </div>
+    </ModulePage>
   );
 }

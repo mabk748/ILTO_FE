@@ -7,6 +7,7 @@ import {
 } from "@/lib/calendar-date.ts";
 import type { Milestone, Project, Sprint } from "@/lib/api/types.ts";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
+import { ModuleSectionHeader } from "@/components/layout/ModulePage.tsx";
 import { cn } from "@/lib/utils.ts";
 import { addDays, differenceInDays, format, startOfDay } from "date-fns";
 import LoadError from "@/components/LoadError.tsx";
@@ -40,18 +41,18 @@ function getRowKey(row: GanttRow): string {
 
 function getBarColor(kind: GanttRow["kind"], status: string) {
   if (kind === "milestone") {
-    if (status === "completed") return "bg-foreground/70 border-foreground";
+    if (status === "completed") return "bg-success/70 border-success";
     if (status === "overdue") return "bg-destructive/70 border-destructive";
     return "bg-primary/70 border-primary";
   }
   if (kind === "sprint") {
-    if (status === "completed") return "bg-foreground/30 border-foreground/60";
+    if (status === "completed") return "bg-success/30 border-success/60";
     if (status === "active") return "bg-primary/40 border-primary/60";
     return "bg-muted border-border";
   }
   // project
-  if (status === "completed") return "bg-foreground/20 border-foreground/50";
-  if (status === "active") return "bg-accent/30 border-accent/50";
+  if (status === "completed") return "bg-success/20 border-success/50";
+  if (status === "active") return "bg-info/30 border-info/50";
   return "bg-muted border-border";
 }
 
@@ -247,6 +248,10 @@ export default function GanttChart() {
 
   return (
     <div className="space-y-4">
+      <ModuleSectionHeader
+        title="Delivery timeline"
+        description="Compare Project, Sprint and Milestone dates. The timeline scrolls horizontally when the selected range is wider than the viewport."
+      />
       <ProjectFilterBar
         total={allRows.length}
         shown={rows.length}
@@ -294,7 +299,7 @@ export default function GanttChart() {
       {rows.length === 0 ? (
         <FilteredEmptyState noun="timeline items" onClear={clearFilters} />
       ) : (
-        <div className="rounded-lg border border-border bg-card overflow-hidden">
+        <div className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm">
           <div className="flex">
             {/* Sticky label column */}
             <div
@@ -487,7 +492,7 @@ export default function GanttChart() {
           {/* Legend */}
           <div className="flex items-center gap-4 px-4 py-2 border-t border-border bg-muted/20">
             <div className="flex items-center gap-1.5">
-              <div className="w-4 h-3 rounded bg-accent/30 border border-accent/50" />
+              <div className="h-3 w-4 rounded border border-info/50 bg-info/30" />
               <span className="text-[10px] text-muted-foreground">Project</span>
             </div>
             <div className="flex items-center gap-1.5">

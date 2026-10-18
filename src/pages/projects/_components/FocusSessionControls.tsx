@@ -7,6 +7,16 @@ import {
   type SetStateAction,
 } from "react";
 import { useBeforeUnload, useLocation, useNavigate } from "react-router-dom";
+import {
+  ArrowRightLeft,
+  CircleDot,
+  FileClock,
+  Pause,
+  Play,
+  Save,
+  SquareCheckBig,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge.tsx";
 import { Button } from "@/components/ui/button.tsx";
 import {
   Dialog,
@@ -308,13 +318,31 @@ export default function FocusSessionControls({
   return (
     <section
       aria-label="Focus session controls"
-      className="space-y-3 border-t pt-4"
+      className="space-y-5 border-t border-border/60 pt-5"
     >
-      <p className="text-sm font-semibold">
-        Focus status: {session.status}. Task status is managed separately.
-      </p>
+      <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <span className="relative flex size-3" aria-hidden="true">
+            {session.status === "active" && (
+              <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
+            )}
+            <span
+              className={`relative inline-flex size-3 rounded-full ${session.status === "active" ? "bg-primary" : "bg-warning"}`}
+            />
+          </span>
+          <Badge variant={session.status === "active" ? "default" : "warning"}>
+            {session.status} Focus
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Focus status: {session.status}. Task status is managed separately.
+        </p>
+      </header>
       {foreignDraft && (
-        <div className="space-y-2 rounded border p-3 text-sm" role="status">
+        <div
+          className="space-y-3 rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm"
+          role="status"
+        >
           <p>
             An unsaved note draft is retained for a previous Focus session. It
             is not attached to this session and will not be sent with its
@@ -334,19 +362,22 @@ export default function FocusSessionControls({
         </div>
       )}
       {session.resume_note && (
-        <div>
-          <h4 className="text-sm font-medium">Saved stopping context</h4>
-          <p className="whitespace-pre-wrap break-words text-sm">
+        <div className="rounded-xl border border-info/20 bg-info/5 p-4">
+          <h4 className="flex items-center gap-2 text-sm font-semibold">
+            <FileClock className="size-4 text-info" aria-hidden="true" />
+            Saved stopping context
+          </h4>
+          <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
             {session.resume_note}
           </p>
         </div>
       )}
-      <div className="space-y-2">
+      <div className="space-y-3 rounded-xl border border-border/70 bg-canvas/35 p-4">
         <label className="block space-y-1 text-sm" htmlFor={noteId}>
-          <span>Resume note</span>
+          <span className="font-semibold">Resume note</span>
           <textarea
             id={noteId}
-            className="w-full rounded border bg-background p-2"
+            className="min-h-28 w-full resize-y rounded-lg border bg-background/65 p-3 leading-6"
             rows={3}
             maxLength={NOTE_LIMIT}
             value={note}
@@ -378,6 +409,7 @@ export default function FocusSessionControls({
             disabled={disabled || !dirty || noteMutation.isPending}
             onClick={() => void saveNote()}
           >
+            <Save aria-hidden="true" />
             {noteMutation.isPending
               ? "Saving note…"
               : noteConflict
@@ -399,34 +431,48 @@ export default function FocusSessionControls({
             </Button>
           )}
           {noteMessage && (
-            <span role="status" className="text-xs">
+            <span role="status" className="text-xs text-success">
               {noteMessage}
             </span>
           )}
         </div>
         {noteError && (
-          <p role="alert" className="text-sm">
+          <p
+            role="alert"
+            className="rounded-lg border border-destructive/25 bg-destructive/5 p-3 text-sm"
+          >
             {noteError}
           </p>
         )}
       </div>
       {session.status === "paused" ? (
-        <>
-          <p className="text-sm">
-            Paused at{" "}
-            {session.paused_at
-              ? new Date(session.paused_at).toLocaleString()
-              : "an unavailable time"}
-            .{" "}
-            {session.resume_note
-              ? "Your saved context is above."
-              : "No resume note saved."}
-          </p>
+        <section
+          aria-label="Execution controls"
+          className="space-y-3 rounded-xl bg-warning/5 p-4"
+        >
+          <div>
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
+              <CircleDot className="size-4 text-warning" aria-hidden="true" />
+              Paused execution
+            </h4>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Paused at{" "}
+              {session.paused_at
+                ? new Date(session.paused_at).toLocaleString()
+                : "an unavailable time"}
+              .{" "}
+              {session.resume_note
+                ? "Your saved context is above."
+                : "No resume note saved."}
+            </p>
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button
+              className="w-full sm:w-auto"
               disabled={disabled || dirty || !eligible(task)}
               onClick={() => onAction({ action: "resume", session })}
             >
+              <Play aria-hidden="true" />
               Resume
             </Button>
             <Button variant="outline" disabled={dirty} onClick={onChoose}>
@@ -437,6 +483,7 @@ export default function FocusSessionControls({
               disabled={disabled || dirty}
               onClick={() => finish(false)}
             >
+              <SquareCheckBig aria-hidden="true" />
               Finish Session
             </Button>
             <Button
@@ -447,54 +494,73 @@ export default function FocusSessionControls({
               Finish &amp; Verify
             </Button>
           </div>
-        </>
+        </section>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button
-            disabled={disabled || noteConflict}
-            onClick={() =>
-              onAction({
-                action: "pause",
-                session,
-                ...(lifecycleNoteUpdate
-                  ? { noteUpdate: lifecycleNoteUpdate }
-                  : {}),
-              })
-            }
-          >
-            Pause
-          </Button>
-          <Button
-            variant="outline"
-            disabled={disabled || dirty}
-            onClick={() => finish(false)}
-          >
-            Finish Session
-          </Button>
-          <Button
-            variant="outline"
-            disabled={disabled || dirty}
-            onClick={() => finish(true)}
-          >
-            Finish &amp; Verify
-          </Button>
-          {tasks.length > 0 && (
+        <section
+          aria-label="Execution controls"
+          className="space-y-3 rounded-xl bg-primary/[0.055] p-4"
+        >
+          <div>
+            <h4 className="flex items-center gap-2 text-sm font-semibold">
+              <CircleDot className="size-4 text-primary" aria-hidden="true" />
+              Active execution
+            </h4>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Lifecycle actions affect this FocusSession only. Task completion
+              remains a separate manual step.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              className="w-full sm:w-auto"
+              disabled={disabled || noteConflict}
+              onClick={() =>
+                onAction({
+                  action: "pause",
+                  session,
+                  ...(lifecycleNoteUpdate
+                    ? { noteUpdate: lifecycleNoteUpdate }
+                    : {}),
+                })
+              }
+            >
+              <Pause aria-hidden="true" />
+              Pause
+            </Button>
             <Button
               variant="outline"
-              disabled={disabled || noteConflict}
-              onClick={() => {
-                setTarget(
-                  tasks.some((item) => item.id === preferredTaskId)
-                    ? preferredTaskId!
-                    : "",
-                );
-                setSwitching(true);
-              }}
+              disabled={disabled || dirty}
+              onClick={() => finish(false)}
             >
-              Switch Task
+              <SquareCheckBig aria-hidden="true" />
+              Finish Session
             </Button>
-          )}
-        </div>
+            <Button
+              variant="outline"
+              disabled={disabled || dirty}
+              onClick={() => finish(true)}
+            >
+              Finish &amp; Verify
+            </Button>
+            {tasks.length > 0 && (
+              <Button
+                variant="ghost"
+                disabled={disabled || noteConflict}
+                onClick={() => {
+                  setTarget(
+                    tasks.some((item) => item.id === preferredTaskId)
+                      ? preferredTaskId!
+                      : "",
+                  );
+                  setSwitching(true);
+                }}
+              >
+                <ArrowRightLeft aria-hidden="true" />
+                Switch Task
+              </Button>
+            )}
+          </div>
+        </section>
       )}
       <Dialog
         open={switching}

@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/errors.ts";
 import {
   createProjectRepository,
@@ -24,6 +29,27 @@ export function useProjectRepositories(projectId: string | null) {
     enabled: projectId !== null,
     queryFn: ({ signal }) => getProjectRepositories(projectId!, { signal }),
   });
+}
+
+/** The backend exposes repositories through explicit per-Project ownership.
+ * System View therefore composes the same confirmed reads instead of assuming
+ * an undocumented all-repositories endpoint. */
+export function useAllProjectRepositories(projectIds: readonly string[]) {
+  const queries = useQueries({
+    queries: projectIds.map((projectId) => ({
+      queryKey: projectRepositoriesQueryKey(projectId),
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        getProjectRepositories(projectId, { signal }),
+    })),
+  });
+
+  return {
+    data: queries.flatMap((query) => query.data ?? []),
+    error: queries.find((query) => query.error)?.error ?? null,
+    isPending: queries.some((query) => query.isPending),
+    isFetching: queries.some((query) => query.isFetching),
+    refetch: () => Promise.all(queries.map((query) => query.refetch())),
+  };
 }
 
 export function useProjectRepositoryMutation<T>(

@@ -171,7 +171,7 @@ export default function AppearanceSpendView({ spend }: Props) {
           Spend by Category ({activeCurrency})
         </p>
         {masked ? (
-          <p className="py-14 text-center text-sm text-muted-foreground">
+          <p className="rounded-lg border border-dashed border-border p-5 text-center text-sm text-muted-foreground">
             Financial chart hidden.
           </p>
         ) : (

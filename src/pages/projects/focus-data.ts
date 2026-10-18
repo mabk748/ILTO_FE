@@ -65,6 +65,15 @@ export function useProjectFocus(projectId: string) {
   });
 }
 
+/** Owner-wide active session projection for directory-level navigation. */
+export function useCurrentFocusSession() {
+  return useQuery({
+    queryKey: focusKeys.current,
+    queryFn: ({ signal }) => getCurrentFocusSession({ signal }),
+    ...freshness,
+  });
+}
+
 export async function refreshFocus(client: QueryClient) {
   // No Dashboard, Intelligence or unrelated module invalidation for execution actions.
   await Promise.all([

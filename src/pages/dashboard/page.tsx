@@ -20,6 +20,11 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card.tsx";
 import { Button } from "@/components/ui/button.tsx";
+import {
+  ModuleHeader,
+  ModulePage,
+  ModuleSectionHeader,
+} from "@/components/layout/ModulePage.tsx";
 import { Skeleton } from "@/components/ui/skeleton.tsx";
 import { cn } from "@/lib/utils.ts";
 import { getAllProjects, getSprints, getTasks } from "@/lib/api/projects.ts";
@@ -67,6 +72,12 @@ import {
   ErrorStateMedia,
   ErrorStateTitle,
 } from "@/components/ui/error-state.tsx";
+import {
+  EmptyState,
+  EmptyStateDescription,
+  EmptyStateMedia,
+  EmptyStateTitle,
+} from "@/components/ui/empty-state.tsx";
 import { useSettings } from "@/components/providers/settings-context.ts";
 import { useFinancePreferences } from "@/components/providers/finance-preferences-context.ts";
 import { financeCurrency, formatMoney } from "@/lib/finance.ts";
@@ -105,16 +116,15 @@ function scoreStatus(score: number): ScoreStatus {
 }
 
 const STATUS_BADGE: Record<ScoreStatus, string> = {
-  "on-track": "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-  "needs-attention":
-    "bg-amber-500/15 text-amber-400 border border-amber-500/30",
-  critical: "bg-red-500/15 text-red-400 border border-red-500/30",
+  "on-track": "border border-success/25 bg-success/12 text-success",
+  "needs-attention": "border border-warning/25 bg-warning/12 text-warning",
+  critical: "border border-destructive/25 bg-destructive/12 text-destructive",
 };
 
 const STATUS_RING: Record<ScoreStatus, string> = {
-  "on-track": "group-hover:border-emerald-500/50",
-  "needs-attention": "group-hover:border-amber-500/50",
-  critical: "group-hover:border-red-500/50",
+  "on-track": "group-hover:border-success/45",
+  "needs-attention": "group-hover:border-warning/45",
+  critical: "group-hover:border-destructive/45",
 };
 
 const STATUS_LABEL: Record<ScoreStatus, string> = {
@@ -168,7 +178,7 @@ function TickerItem({
       <span
         className={cn(
           "text-xs font-semibold",
-          accent ? "text-amber-400" : "text-foreground",
+          accent ? "text-warning" : "text-foreground",
         )}
       >
         {value}
@@ -255,23 +265,22 @@ async function loadDashboardData({
 
 function DashboardHeader({ clock, date }: { clock: string; date: string }) {
   return (
-    <div className="border-b border-border px-6 py-4 flex items-center justify-between">
-      <div>
-        <h1
-          className="text-2xl font-bold text-foreground tracking-tight"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          Command Center
-        </h1>
-        <p className="text-sm text-muted-foreground mt-0.5">{date}</p>
-      </div>
-      <div
-        className="text-3xl font-bold tabular-nums text-primary"
-        style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-      >
-        {clock}
-      </div>
-    </div>
+    <ModuleHeader
+      title="Command Center"
+      description={date}
+      icon={Activity}
+      eyebrow="ILTO operational overview"
+      actions={
+        <div className="rounded-xl border border-primary/20 bg-primary/[0.055] px-4 py-2 text-right">
+          <p className="text-[0.65rem] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+            Local time
+          </p>
+          <p className="font-mono text-2xl font-bold tabular-nums text-primary sm:text-3xl">
+            {clock}
+          </p>
+        </div>
+      }
+    />
   );
 }
 
@@ -333,11 +342,11 @@ export function DomainHealthCard({
                   className={cn(
                     "h-full rounded-full transition-all duration-500",
                     status === "on-track"
-                      ? "bg-emerald-500"
+                      ? "bg-success"
                       : status === "needs-attention"
-                        ? "bg-amber-500"
+                        ? "bg-warning"
                         : status === "critical"
-                          ? "bg-red-500"
+                          ? "bg-destructive"
                           : "bg-transparent",
                   )}
                   style={{
@@ -515,6 +524,25 @@ export default function DashboardPage() {
   const cardsReviewed =
     data?.allCards.reduce((a, c) => a + c.times_reviewed, 0) ?? 0;
   const followedUp = data?.followUps.filter((f) => f.completed).length ?? 0;
+  const hasDashboardObservations = data
+    ? [
+        data.projects,
+        data.sprints,
+        data.tasks,
+        data.nodes,
+        data.gitActivity,
+        data.healthMetrics,
+        data.workoutSessions,
+        data.budgetCategories,
+        data.allCards,
+        data.deadlines,
+        data.certifications,
+        data.followUps,
+        data.contacts,
+      ].some((records) => records.length > 0) ||
+      hasTrendObservations(data.sleepTrend) ||
+      hasTrendObservations(data.commitsTrend)
+    : false;
 
   // ── Health scores ───────────────────────────────────────────────────────────
   const scores = data
@@ -548,8 +576,8 @@ export default function DashboardPage() {
             icon: FolderKanban,
             path: "/projects",
             score: scores.projects,
-            color: "text-violet-400",
-            bg: "bg-violet-500/10",
+            color: "text-primary",
+            bg: "bg-primary/10",
             metrics: [
               {
                 label: "Active sprints",
@@ -571,8 +599,8 @@ export default function DashboardPage() {
             icon: Server,
             path: "/infrastructure",
             score: scores.infra,
-            color: "text-blue-400",
-            bg: "bg-blue-500/10",
+            color: "text-info",
+            bg: "bg-info/10",
             metrics: [
               {
                 label: "Nodes online",
@@ -591,8 +619,8 @@ export default function DashboardPage() {
             icon: HeartPulse,
             path: "/health",
             score: scores.health,
-            color: "text-rose-400",
-            bg: "bg-rose-500/10",
+            color: "text-destructive",
+            bg: "bg-destructive/10",
             metrics: [
               {
                 label: "Last sleep",
@@ -621,8 +649,8 @@ export default function DashboardPage() {
             path: "/finances",
             score: scores.finances,
             privacyMasked: financesMasked,
-            color: "text-emerald-400",
-            bg: "bg-emerald-500/10",
+            color: "text-success",
+            bg: "bg-success/10",
             metrics:
               budgetsByCurrency.length === 0
                 ? [{ label: "Currency filter", value: "None selected" }]
@@ -654,8 +682,8 @@ export default function DashboardPage() {
             icon: BookOpen,
             path: "/learning",
             score: scores.learning,
-            color: "text-amber-400",
-            bg: "bg-amber-500/10",
+            color: "text-warning",
+            bg: "bg-warning/10",
             metrics: [
               { label: "Cards due", value: `${data.dueCards.length}` },
               { label: "Total reviewed", value: `${cardsReviewed}` },
@@ -668,8 +696,8 @@ export default function DashboardPage() {
             icon: Briefcase,
             path: "/work",
             score: scores.work,
-            color: "text-orange-400",
-            bg: "bg-orange-500/10",
+            color: "text-warning",
+            bg: "bg-warning/10",
             metrics: [
               { label: "Overdue", value: `${overdueDeadlines} deadlines` },
               {
@@ -688,8 +716,8 @@ export default function DashboardPage() {
             icon: Users,
             path: "/social",
             score: scores.social,
-            color: "text-cyan-400",
-            bg: "bg-cyan-500/10",
+            color: "text-primary",
+            bg: "bg-primary/10",
             metrics: [
               {
                 label: "Active contacts",
@@ -708,8 +736,8 @@ export default function DashboardPage() {
             icon: Monitor,
             path: "/infrastructure",
             score: scores.system,
-            color: "text-indigo-400",
-            bg: "bg-indigo-500/10",
+            color: "text-info",
+            bg: "bg-info/10",
             metrics: [
               { label: "Commits / week", value: `${totalCommitsWeek}` },
               {
@@ -728,201 +756,223 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-full">
+      <ModulePage>
         <DashboardHeader clock={clock} date={dateStr} />
-        <div className="p-6">
-          <ErrorState>
-            <ErrorStateMedia />
-            <ErrorStateHeader>
-              <ErrorStateTitle>Could not load the dashboard</ErrorStateTitle>
-              <ErrorStateDescription>
-                {error instanceof Error
-                  ? error.message
-                  : "The data request failed."}
-              </ErrorStateDescription>
-            </ErrorStateHeader>
-            <ErrorStateContent>
-              <Button onClick={() => void refetch()}>Try again</Button>
-            </ErrorStateContent>
-          </ErrorState>
-        </div>
-      </div>
+        <ErrorState>
+          <ErrorStateMedia />
+          <ErrorStateHeader>
+            <ErrorStateTitle>Could not load the dashboard</ErrorStateTitle>
+            <ErrorStateDescription>
+              {error instanceof Error
+                ? error.message
+                : "The data request failed."}
+            </ErrorStateDescription>
+          </ErrorStateHeader>
+          <ErrorStateContent>
+            <Button onClick={() => void refetch()}>Try again</Button>
+          </ErrorStateContent>
+        </ErrorState>
+      </ModulePage>
     );
   }
 
   return (
-    <div className="min-h-full">
+    <ModulePage>
       {/* ── Header ── */}
       <DashboardHeader clock={clock} date={dateStr} />
 
       {/* ── Status ticker ── */}
-      <div className="border-b border-border bg-muted/20">
-        <div className="flex items-center py-2 overflow-x-auto scrollbar-none divide-x divide-border">
-          {loading ? (
-            <div className="flex items-center gap-4 px-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-4 w-24" />
-              ))}
-            </div>
-          ) : (
-            <>
-              <TickerItem
-                label="Nodes"
-                value={`${onlineCount}/${data?.nodes.length ?? 0} online`}
-              />
-              {degradedCount > 0 && (
+      {(loading || hasDashboardObservations) && (
+        <section
+          aria-label="Current operational signals"
+          className="overflow-hidden rounded-xl border border-border/70 bg-card/55"
+        >
+          <div className="scrollbar-none flex items-center divide-x divide-border overflow-x-auto overflow-y-hidden py-2">
+            {loading ? (
+              <div className="flex items-center gap-4 px-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-4 w-24" />
+                ))}
+              </div>
+            ) : (
+              <>
                 <TickerItem
-                  label="Degraded"
-                  value={`${degradedCount}`}
-                  accent
+                  label="Nodes"
+                  value={`${onlineCount}/${data?.nodes.length ?? 0} online`}
                 />
-              )}
-              <TickerItem
-                label="Active sprints"
-                value={
-                  activeSprints.length
-                    ? `${activeSprints.length}: ${activeSprints.map((sprint) => sprint.name).join(", ")}`
-                    : "None"
-                }
-              />
-              <TickerItem
-                label="Tasks"
-                value={`${doneTasks}/${sprintTasks.length} done`}
-              />
-              <TickerItem
-                label="Budget"
-                value={`${financeSummary("spent")} / ${financeSummary("limit")}`}
-              />
-              <TickerItem
-                label="Sleep last"
-                value={
-                  lastMetric?.sleep_hours != null
-                    ? `${lastMetric.sleep_hours.toFixed(1)}h`
-                    : "—"
-                }
-              />
-              <TickerItem
-                label="Resting HR"
-                value={
-                  lastMetric?.resting_hr != null
-                    ? `${lastMetric.resting_hr} bpm`
-                    : "—"
-                }
-              />
-              <TickerItem
-                label="Git today"
-                value={`${totalCommitsToday} commits`}
-              />
-              <TickerItem
-                label="SR due"
-                value={`${data?.dueCards.length ?? 0} cards`}
-              />
-              {overdueDeadlines > 0 && (
+                {degradedCount > 0 && (
+                  <TickerItem
+                    label="Degraded"
+                    value={`${degradedCount}`}
+                    accent
+                  />
+                )}
                 <TickerItem
-                  label="Overdue deadlines"
-                  value={`${overdueDeadlines}`}
-                  accent
+                  label="Active sprints"
+                  value={
+                    activeSprints.length
+                      ? `${activeSprints.length}: ${activeSprints.map((sprint) => sprint.name).join(", ")}`
+                      : "None"
+                  }
                 />
-              )}
-              {overdueFollowUps > 0 && (
                 <TickerItem
-                  label="Follow-ups overdue"
-                  value={`${overdueFollowUps}`}
-                  accent
+                  label="Tasks"
+                  value={`${doneTasks}/${sprintTasks.length} done`}
                 />
-              )}
-            </>
-          )}
-        </div>
-      </div>
+                <TickerItem
+                  label="Budget"
+                  value={`${financeSummary("spent")} / ${financeSummary("limit")}`}
+                />
+                <TickerItem
+                  label="Sleep last"
+                  value={
+                    lastMetric?.sleep_hours != null
+                      ? `${lastMetric.sleep_hours.toFixed(1)}h`
+                      : "—"
+                  }
+                />
+                <TickerItem
+                  label="Resting HR"
+                  value={
+                    lastMetric?.resting_hr != null
+                      ? `${lastMetric.resting_hr} bpm`
+                      : "—"
+                  }
+                />
+                <TickerItem
+                  label="Git today"
+                  value={`${totalCommitsToday} commits`}
+                />
+                <TickerItem
+                  label="SR due"
+                  value={`${data?.dueCards.length ?? 0} cards`}
+                />
+                {overdueDeadlines > 0 && (
+                  <TickerItem
+                    label="Overdue deadlines"
+                    value={`${overdueDeadlines}`}
+                    accent
+                  />
+                )}
+                {overdueFollowUps > 0 && (
+                  <TickerItem
+                    label="Follow-ups overdue"
+                    value={`${overdueFollowUps}`}
+                    accent
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* ── Main content ── */}
-      <div className="p-6 space-y-8">
-        {/* Domain health grid */}
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-            Domain Health
-          </p>
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-44 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {visibleDomainCards.map((card) => (
-                <DomainHealthCard key={card.label} {...card} />
-              ))}
-            </div>
-          )}
-        </section>
+      <div className="space-y-8">
+        {!loading && data && !hasDashboardObservations ? (
+          <EmptyState className="py-7 md:py-7">
+            <EmptyStateMedia>
+              <Activity aria-hidden="true" />
+            </EmptyStateMedia>
+            <EmptyStateTitle>No operational records yet</EmptyStateTitle>
+            <EmptyStateDescription>
+              Domain health and weekly metrics appear after ILTO receives real
+              Project, infrastructure, health, finance, learning, work or social
+              records.
+            </EmptyStateDescription>
+          </EmptyState>
+        ) : (
+          <>
+            {/* Domain health grid */}
+            <section className="space-y-4">
+              <ModuleSectionHeader
+                title="Domain health"
+                description="Direct links into each visible operating domain, using only its existing backend-derived score and metrics."
+              />
+              {loading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <Skeleton key={i} className="h-44 w-full rounded-xl" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {visibleDomainCards.map((card) => (
+                    <DomainHealthCard key={card.label} {...card} />
+                  ))}
+                </div>
+              )}
+            </section>
 
-        {/* Weekly KPI digest */}
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-            Weekly KPI Digest
-          </p>
-          {loading ? (
-            <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <Skeleton key={i} className="h-20 w-36 shrink-0 rounded-lg" />
-              ))}
-            </div>
-          ) : (
-            <div className="flex gap-3 overflow-x-auto scrollbar-none pb-2">
-              <KPITile
-                label="Commits / week"
-                value={`${totalCommitsWeek}`}
-                icon={GitCommit}
-                color="text-blue-400"
+            {/* Weekly KPI digest */}
+            <section className="space-y-4">
+              <ModuleSectionHeader
+                title="Weekly digest"
+                description="A compact view of the existing cross-domain weekly counters."
               />
-              <KPITile
-                label="Workouts (7d)"
-                value={`${workoutCount}`}
-                icon={Dumbbell}
-                color="text-rose-400"
-              />
-              <KPITile
-                label="Budget left"
-                value={financeSummary("remaining")}
-                icon={CreditCard}
-                color="text-emerald-400"
-              />
-              <KPITile
-                label="Study hours"
-                value={`${studyHours}h`}
-                icon={Brain}
-                color="text-amber-400"
-              />
-              <KPITile
-                label="Cards reviewed"
-                value={`${cardsReviewed}`}
-                icon={BookOpen}
-                color="text-violet-400"
-              />
-              <KPITile
-                label="Followed up"
-                value={`${followedUp}`}
-                icon={UserCheck}
-                color="text-cyan-400"
-              />
-              <KPITile
-                label="Overdue items"
-                value={`${overdueDeadlines + overdueFollowUps}`}
-                icon={AlertTriangle}
-                color="text-orange-400"
-              />
-            </div>
-          )}
-        </section>
+              {loading ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                  {Array.from({ length: 7 }).map((_, i) => (
+                    <Skeleton key={i} className="h-20 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                  <KPITile
+                    label="Commits / week"
+                    value={`${totalCommitsWeek}`}
+                    icon={GitCommit}
+                    color="text-info"
+                  />
+                  <KPITile
+                    label="Workouts (7d)"
+                    value={`${workoutCount}`}
+                    icon={Dumbbell}
+                    color="text-destructive"
+                  />
+                  <KPITile
+                    label="Budget left"
+                    value={financeSummary("remaining")}
+                    icon={CreditCard}
+                    color="text-success"
+                  />
+                  <KPITile
+                    label="Study hours"
+                    value={`${studyHours}h`}
+                    icon={Brain}
+                    color="text-warning"
+                  />
+                  <KPITile
+                    label="Cards reviewed"
+                    value={`${cardsReviewed}`}
+                    icon={BookOpen}
+                    color="text-primary"
+                  />
+                  <KPITile
+                    label="Followed up"
+                    value={`${followedUp}`}
+                    icon={UserCheck}
+                    color="text-primary"
+                  />
+                  <KPITile
+                    label="Overdue items"
+                    value={`${overdueDeadlines + overdueFollowUps}`}
+                    icon={AlertTriangle}
+                    color="text-warning"
+                  />
+                </div>
+              )}
+            </section>
+          </>
+        )}
 
         {/* Quick actions */}
-        <section>
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-            Quick Actions
-          </p>
-          <div className="flex flex-wrap gap-2">
+        <section className="space-y-4 rounded-2xl border border-border/70 bg-card/55 p-4 sm:p-5">
+          <ModuleSectionHeader
+            title="Quick actions"
+            description="Open the existing module workflow for the next common action."
+          />
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <Button
               variant="secondary"
               size="sm"
@@ -981,6 +1031,6 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
-    </div>
+    </ModulePage>
   );
 }

@@ -84,8 +84,10 @@ describe("Focus execution (mocked HTTP/jsdom, not a live backend/browser)", () =
     expect(await screen.findByText("Resume from NEXT")).toBeVisible();
     expect(screen.getByText("Showing 3 of 8.")).toBeVisible();
     expect(
-      screen.getByRole("region", { name: "Upcoming work" }).parentElement,
-    ).toHaveClass("md:grid-cols-2");
+      screen
+        .getByRole("region", { name: "NEXT" })
+        .querySelector('[data-layout="execution-queue"]'),
+    ).toHaveClass("lg:grid-cols-[minmax(0,1fr)_20rem]");
     await click("Resume Task");
     expect(await screen.findByText("active Focus session")).toBeVisible();
     expect(server.current()?.id).toBe("f1");
@@ -268,9 +270,15 @@ describe("Focus execution (mocked HTTP/jsdom, not a live backend/browser)", () =
     expect(
       await screen.findByText("Active sprint and priority from the server"),
     ).toBeVisible();
+    const now = screen.getByRole("region", { name: "NOW" });
+    expect(now).toHaveAttribute("data-focus-state", "recommended");
+    expect(now.querySelector('[data-layout="focus-cockpit"]')).toHaveClass(
+      "lg:grid-cols-[minmax(0,7fr)_minmax(18rem,3fr)]",
+    );
     expect(screen.getByText(/Manual condition/)).toBeVisible();
     await click("Start Task");
     expect(await screen.findByText("active Focus session")).toBeVisible();
+    expect(now).toHaveAttribute("data-focus-state", "active");
     expect(screen.getByRole("button", { name: "Save Note" })).toBeDisabled();
     fireEvent.change(screen.getByLabelText("Resume note"), {
       target: { value: "Continue with the parser" },
@@ -280,6 +288,7 @@ describe("Focus execution (mocked HTTP/jsdom, not a live backend/browser)", () =
     ).toBeDisabled();
     await click("Pause");
     expect(await screen.findByText("paused Focus session")).toBeVisible();
+    expect(now).toHaveAttribute("data-focus-state", "paused");
     area("NEXT");
     area("NOW");
     expect(await screen.findByText("Saved stopping context")).toBeVisible();
@@ -288,6 +297,10 @@ describe("Focus execution (mocked HTTP/jsdom, not a live backend/browser)", () =
     await click("Finish Session");
     await screen.findByText(
       /Session finished. Task status has not been changed/,
+    );
+    expect(screen.getByRole("region", { name: "NOW" })).toHaveAttribute(
+      "data-focus-state",
+      "finished",
     );
     expect(server.data.tasks[0].status).toBe("in_progress");
     expect(
@@ -608,6 +621,10 @@ describe("Focus execution (mocked HTTP/jsdom, not a live backend/browser)", () =
         name: "Go to active Project: Project Beta",
       }),
     ).toHaveAttribute("href", "/projects/p2/now?task=other");
+    expect(screen.getByRole("region", { name: "NOW" })).toHaveAttribute(
+      "data-focus-state",
+      "elsewhere",
+    );
     expect(writes()).toHaveLength(0);
     expect(
       screen.queryByRole("button", { name: "Start Task" }),
@@ -800,6 +817,10 @@ describe("Focus execution (mocked HTTP/jsdom, not a live backend/browser)", () =
       expect(
         screen.queryByRole("button", { name: "Start Task" }),
       ).not.toBeInTheDocument();
+      expect(screen.getByRole("region", { name: "NOW" })).toHaveAttribute(
+        "data-focus-state",
+        "empty",
+      );
       expect(writes()).toHaveLength(0);
     },
   );
