@@ -22,6 +22,7 @@ export function session(overrides: Partial<FocusSession> = {}): FocusSession {
 export function focusServer() {
   const data: ProjectsData = {
     projects: [{ ...project }, { ...project, id: "p2", name: "Project Beta" }],
+    workstreams: [],
     tasks: [
       { ...task, acceptance_criteria: "Manual condition\nAnother condition" },
       { ...task, id: "t2", title: "Next Task", sprint_id: null },
@@ -104,6 +105,13 @@ export function focusServer() {
             ),
           );
         if (path === "/projects/sprints") return Response.json(data.sprints);
+        if (path === "/projects/workstreams")
+          return Response.json(
+            data.workstreams.filter(
+              (item) =>
+                item.project_id === parsed.searchParams.get("project_id"),
+            ),
+          );
         if (path === "/projects/milestones")
           return Response.json(data.milestones);
         if (path === "/projects/repositories") return Response.json([]);

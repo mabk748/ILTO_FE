@@ -56,6 +56,7 @@ export interface HorizonItem {
 export type ProjectStatus =
   "planning" | "active" | "on_hold" | "completed" | "archived";
 export type SprintStatus = "planned" | "active" | "completed";
+export type WorkstreamStatus = "active" | "archived";
 export type TaskStatus = "backlog" | "todo" | "in_progress" | "review" | "done";
 export type TaskCategory =
   | "design"
@@ -85,6 +86,7 @@ export interface Project {
 export interface Sprint {
   id: string;
   project_id: string;
+  workstream_id: string | null;
   name: string;
   goal: string;
   status: SprintStatus;
@@ -94,9 +96,20 @@ export interface Sprint {
   created_at: ISODateString;
 }
 
+export interface Workstream {
+  id: string;
+  project_id: string;
+  name: string;
+  description: string | null;
+  status: WorkstreamStatus;
+  created_at: ISODateString;
+  updated_at: ISODateString;
+}
+
 export interface Task {
   id: string;
   sprint_id: string | null;
+  workstream_id: string | null;
   project_id: string;
   title: string;
   description: string;

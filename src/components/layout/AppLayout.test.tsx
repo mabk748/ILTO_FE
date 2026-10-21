@@ -13,6 +13,7 @@ import { SettingsContext } from "@/components/providers/settings-context.ts";
 import { TooltipProvider } from "@/components/ui/tooltip.tsx";
 import type { FinanceCurrency } from "@/lib/api/types.ts";
 import { normalizeSettings } from "@/lib/settings.ts";
+import { APP_VERSION } from "@/config/app-version.ts";
 
 vi.mock("@/components/providers/owner-auth-context.ts", () => ({
   useOwnerAuth: () => ({
@@ -110,7 +111,7 @@ describe("application shell", () => {
     expect(
       screen.getAllByRole("link", { name: /Dashboard/ })[0],
     ).toHaveAttribute("href", "/dashboard");
-    expect(screen.getByText("Personal OS · V0.2.00")).toBeVisible();
+    expect(screen.getByText(`Personal OS · V${APP_VERSION}`)).toBeVisible();
   });
 
   it("collapses the desktop sidebar and persists the preference", () => {

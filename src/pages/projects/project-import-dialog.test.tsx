@@ -18,6 +18,7 @@ function responseForRead(url: string) {
       total_pages: 1,
     });
   if (path.endsWith("/projects/sprints")) return Response.json([sprint]);
+  if (path.endsWith("/projects/workstreams")) return Response.json([]);
   if (path.endsWith("/projects/tasks")) return Response.json([task]);
   if (path.endsWith("/projects/milestones")) return Response.json([milestone]);
   throw new Error(`Unexpected read: ${url}`);
@@ -32,6 +33,7 @@ function setup() {
   });
   client.setQueryData(["projects", "data"], {
     projects: [project],
+    workstreams: [],
     sprints: [sprint],
     tasks: [task],
     milestones: [milestone],

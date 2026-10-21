@@ -36,6 +36,7 @@ import {
 const DELETED_LABELS: Record<keyof ProjectDeletedCounts, string> = {
   tasks: "Tasks",
   sprints: "Sprints",
+  workstreams: "Workstreams",
   milestones: "Milestones",
   repositories: "Repositories",
   focus_sessions: "FocusSessions",

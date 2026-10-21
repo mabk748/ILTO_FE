@@ -158,6 +158,7 @@ beforeEach(() => {
       });
     }
     if (path === "/sprints") return Response.json(sprints);
+    if (path === "/workstreams") return Response.json([]);
     if (path === "/tasks") return Response.json(tasks);
     if (path === "/milestones") return Response.json(milestones);
     if (path === "/repositories") {

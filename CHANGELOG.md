@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026-10-21 — V0.2.01 Project Workstreams
+
+- Added typed Workstream contracts and Project-scoped loading for the backend
+  `0020_project_workstreams` API, including Task/Sprint assignment fields and
+  server-supported Workstream filters.
+- Added a compact Workstream manager inside Project EXPLORE with accessible
+  create, edit, archive and reactivate flows. Workstreams are described as
+  persistent areas of responsibility and remain visually distinct from
+  time-bounded Sprints.
+- Added URL-backed Task and Sprint filtering by Workstream, explicit unassigned
+  states, archived-assignment visibility, and Workstream context on Board and
+  Sprint records. Archived Workstreams cannot receive new assignments.
+- Preserved Project-level NOW/NEXT behavior and all FocusSession concurrency,
+  note-draft and completion safeguards. Workstream actions use the existing
+  authenticated client, query invalidation and error patterns.
+- Updated explicit Project deletion previews/results to include the backend's
+  Workstream count and advanced the tracked application version from `0.2.00`
+  to `0.2.01`. No backend, dependency, database, Docker or deployment change
+  was made.
+
+### Actual checks
+
+- Focused Workstream and Projects regression checks: passed (8 Vitest files,
+  207 tests).
+- `npm test`: passed (90 Vitest files, 589 tests, plus version and deployment
+  checks).
+- `npm run build`, `npm run lint`, `npm run prettier-check`, and
+  `git diff --check`: passed.
+- API/UI tests use mocked HTTP and jsdom. No live V0.2.01 backend or real-browser
+  integration was claimed in this batch.
+
 ## 2026-10-18 — V0.2 pre-deployment visual polish
 
 - Removed accidental cross-axis scrollbars from shared tab and module

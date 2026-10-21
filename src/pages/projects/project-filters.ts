@@ -10,17 +10,20 @@ import type {
   Task,
   TaskCategory,
   TaskStatus,
+  Workstream,
 } from "@/lib/api/types.ts";
 import { TASK_CATEGORIES } from "./task-model.ts";
 
 export const NO_SPRINT_FILTER = "__no_sprint__";
+export const NO_WORKSTREAM_FILTER = "__no_workstream__";
 export const UNASSIGNED_FILTER = "__unassigned__";
 export const GANTT_ITEM_TYPES = ["project", "sprint", "milestone"] as const;
 
 export type GanttItemType = (typeof GANTT_ITEM_TYPES)[number];
 export type TaskStatusFilter = "not_done" | TaskStatus;
 
-type MultiFilterKey = "project" | "sprint" | "milestone" | "gantt_type";
+type MultiFilterKey =
+  "project" | "workstream" | "sprint" | "milestone" | "gantt_type";
 type SingleFilterKey =
   | "task_status"
   | "priority"
@@ -32,6 +35,7 @@ type SingleFilterKey =
 
 export interface ProjectsFilterCollections {
   projects: readonly Project[];
+  workstreams: readonly Workstream[];
   sprints: readonly Sprint[];
   tasks: readonly Task[];
   milestones: readonly Milestone[];
@@ -39,6 +43,7 @@ export interface ProjectsFilterCollections {
 
 export interface ProjectsFilters {
   projectIds: string[];
+  workstreamIds: string[];
   sprintIds: string[];
   milestoneIds: string[];
   taskStatus: TaskStatusFilter | null;
@@ -64,6 +69,7 @@ export interface ProjectsFilterState {
 
 const EMPTY_PROJECTS_DATA: ProjectsFilterCollections = {
   projects: [],
+  workstreams: [],
   sprints: [],
   tasks: [],
   milestones: [],
@@ -136,6 +142,10 @@ export function useProjectsFilters(
       new Set(availableCollections.projects.map((project) => project.id)),
     );
     const projectScope = new Set(projectIds);
+    const visibleWorkstreams = (availableCollections.workstreams ?? []).filter(
+      (workstream) =>
+        projectIds.length === 0 || projectScope.has(workstream.project_id),
+    );
     const visibleSprints = availableCollections.sprints.filter(
       (sprint) =>
         projectIds.length === 0 || projectScope.has(sprint.project_id),
@@ -147,6 +157,13 @@ export function useProjectsFilters(
     const sprintIds = uniqueValid(
       searchParams.getAll("sprint"),
       new Set([...visibleSprints.map((sprint) => sprint.id), NO_SPRINT_FILTER]),
+    );
+    const workstreamIds = uniqueValid(
+      searchParams.getAll("workstream"),
+      new Set([
+        ...visibleWorkstreams.map((workstream) => workstream.id),
+        NO_WORKSTREAM_FILTER,
+      ]),
     );
     const milestoneIds = uniqueValid(
       searchParams.getAll("milestone"),
@@ -161,6 +178,7 @@ export function useProjectsFilters(
 
     return {
       projectIds,
+      workstreamIds,
       sprintIds,
       milestoneIds,
       taskStatus: validSingle(searchParams.get("task_status"), TASK_STATUSES),
@@ -194,6 +212,7 @@ export function useProjectsFilters(
     if (!collections) return;
     const sanitized = new URLSearchParams(searchParams);
     replaceValues(sanitized, "project", filters.projectIds);
+    replaceValues(sanitized, "workstream", filters.workstreamIds);
     replaceValues(sanitized, "sprint", filters.sprintIds);
     replaceValues(sanitized, "milestone", filters.milestoneIds);
     replaceValues(sanitized, "gantt_type", filters.ganttItemTypes);
@@ -234,6 +253,15 @@ export function useProjectsFilters(
           .map((sprint) => sprint.id),
         NO_SPRINT_FILTER,
       ]);
+      const allowedWorkstreams = new Set([
+        ...(availableCollections.workstreams ?? [])
+          .filter(
+            (workstream) =>
+              nextProjects.length === 0 || scope.has(workstream.project_id),
+          )
+          .map((workstream) => workstream.id),
+        NO_WORKSTREAM_FILTER,
+      ]);
       const allowedMilestones = new Set(
         availableCollections.milestones
           .filter(
@@ -246,6 +274,11 @@ export function useProjectsFilters(
         replaceValues(next, "project", nextProjects);
         replaceValues(
           next,
+          "workstream",
+          filters.workstreamIds.filter((id) => allowedWorkstreams.has(id)),
+        );
+        replaceValues(
+          next,
           "sprint",
           filters.sprintIds.filter((id) => allowedSprints.has(id)),
         );
@@ -256,7 +289,13 @@ export function useProjectsFilters(
         );
       });
     },
-    [availableCollections, filters.milestoneIds, filters.sprintIds, update],
+    [
+      availableCollections,
+      filters.milestoneIds,
+      filters.sprintIds,
+      filters.workstreamIds,
+      update,
+    ],
   );
 
   const setMulti = useCallback(

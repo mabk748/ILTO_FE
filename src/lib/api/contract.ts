@@ -140,7 +140,15 @@ export const API_CONTRACT = [
     path: "/projects/sprints",
     function: "getSprints",
     response: "Sprint[]",
-    query: "{ project_id: projectId }",
+    query: "{ project_id: projectId, workstream_id: workstreamId }",
+  },
+  {
+    domain: "projects",
+    method: "GET",
+    path: "/projects/workstreams",
+    function: "getWorkstreams",
+    response: "Workstream[]",
+    query: "{ project_id: projectId } (required)",
   },
   {
     domain: "projects",
@@ -148,8 +156,7 @@ export const API_CONTRACT = [
     path: "/projects/tasks",
     function: "getTasks",
     response: "Task[]",
-    query:
-      "{ sprint_id: filters.sprintId, project_id: filters.projectId, status: filters.status }",
+    query: "{ sprint_id, project_id, status, workstream_id }",
   },
   {
     domain: "projects",
@@ -212,6 +219,22 @@ export const API_CONTRACT = [
     function: "createTask",
     response: "Task",
     input: "CreateTaskInput",
+  },
+  {
+    domain: "projects",
+    method: "POST",
+    path: "/projects/workstreams",
+    function: "createWorkstream",
+    response: "Workstream",
+    input: "CreateWorkstreamInput",
+  },
+  {
+    domain: "projects",
+    method: "PATCH",
+    path: "/projects/workstreams/:id",
+    function: "updateWorkstream",
+    response: "Workstream",
+    input: "UpdateWorkstreamInput",
   },
   {
     domain: "projects",

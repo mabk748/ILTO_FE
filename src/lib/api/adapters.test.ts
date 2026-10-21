@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { getTasks, getAllProjects } from "./projects.ts";
+import {
+  getTasks,
+  getAllProjects,
+  getSprints,
+  getWorkstreams,
+} from "./projects.ts";
 import { getWorkoutSessions } from "./health.ts";
 import { getNetWorthHistory, updateBill } from "./finances.ts";
 import { getSkills } from "./learning.ts";
@@ -31,6 +36,18 @@ afterEach(() => {
 describe("backend resource contracts", () => {
   const lists: [string, () => Promise<unknown>][] = [
     ["/projects/tasks?status=done", () => getTasks({ status: "done" })],
+    [
+      "/projects/tasks?project_id=p1&workstream_id=w1",
+      () => getTasks({ projectId: "p1", workstreamId: "w1" }),
+    ],
+    [
+      "/projects/sprints?project_id=p1&workstream_id=w1",
+      () => getSprints("p1", {}, "w1"),
+    ],
+    [
+      "/projects/workstreams?project_id=project%2F1",
+      () => getWorkstreams("project/1"),
+    ],
     ["/health/workouts?days=7", () => getWorkoutSessions(7)],
     ["/finances/net-worth?months=6", () => getNetWorthHistory(6)],
     ["/learning/skills?roadmap_id=road%2Fmap", () => getSkills("road/map")],

@@ -104,6 +104,7 @@ beforeEach(() => {
     will_delete: {
       tasks: 2,
       sprints: 1,
+      workstreams: 1,
       milestones: 1,
       repositories: 1,
       focus_sessions: 2,
@@ -125,6 +126,7 @@ beforeEach(() => {
     deleted: {
       tasks: 8,
       sprints: 2,
+      workstreams: 1,
       milestones: 3,
       repositories: 4,
       focus_sessions: 2,
@@ -207,6 +209,7 @@ describe("Delete project and contents (mocked backend/jsdom)", () => {
     impact.will_delete = {
       tasks: 0,
       sprints: 0,
+      workstreams: 0,
       milestones: 0,
       repositories: 0,
       focus_sessions: 0,

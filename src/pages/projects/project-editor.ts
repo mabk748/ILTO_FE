@@ -6,6 +6,7 @@ import type {
   Milestone,
   Priority,
   TaskCategory,
+  Workstream,
 } from "@/lib/api/types.ts";
 import { ApiError } from "@/lib/api/errors.ts";
 import { parseCalendarDate } from "@/lib/calendar-date.ts";
@@ -13,6 +14,7 @@ import { TASK_CATEGORIES } from "./task-model.ts";
 
 export type EditorTarget =
   | { kind: "project"; record?: Project }
+  | { kind: "workstream"; record?: Workstream }
   | { kind: "sprint"; record?: Sprint }
   | { kind: "task"; record?: Task }
   | { kind: "milestone"; record?: Milestone };
@@ -20,6 +22,7 @@ export type Draft = Record<string, string>;
 
 export const statuses = {
   project: ["planning", "active", "on_hold", "completed", "archived"],
+  workstream: ["active", "archived"],
   sprint: ["planned", "active", "completed"],
   task: ["backlog", "todo", "in_progress", "review", "done"],
 } as const;
@@ -33,6 +36,7 @@ export function initialDraft(target: EditorTarget): Draft {
     goal: "",
     project_id: "",
     sprint_id: "",
+    workstream_id: "",
     assignee: "",
     story_points: "0",
     category: "other",
@@ -95,6 +99,7 @@ export async function saveResource(
   target: EditorTarget,
   values: Draft,
   sprints: Sprint[],
+  workstreams: Workstream[] = [],
 ) {
   switch (target.kind) {
     case "project": {
@@ -116,8 +121,25 @@ export async function saveResource(
       const boundaries = dates(values);
       if (!boundaries.end_date)
         throw new Error("A sprint end date is required.");
+      const selectedWorkstream = values.workstream_id
+        ? workstreams.find(
+            (workstream) =>
+              workstream.id === values.workstream_id &&
+              workstream.project_id === values.project_id,
+          )
+        : undefined;
+      if (values.workstream_id && !selectedWorkstream)
+        throw new Error(
+          "Choose a workstream belonging to this sprint's project, or no workstream.",
+        );
+      if (
+        selectedWorkstream?.status === "archived" &&
+        target.record?.workstream_id !== selectedWorkstream.id
+      )
+        throw new Error("Archived workstreams cannot receive new assignments.");
       const input: api.CreateSprintInput = {
         project_id: values.project_id,
+        workstream_id: values.workstream_id || null,
         name: name(values.name),
         goal: values.goal,
         status: choice(values.status, statuses.sprint),
@@ -131,6 +153,22 @@ export async function saveResource(
           )
         : api.createSprint(input);
     }
+    case "workstream": {
+      const writable = {
+        name: name(values.name),
+        description: values.description.trim() ? values.description : null,
+        status: choice(values.status, statuses.workstream),
+      };
+      return target.record
+        ? api.updateWorkstream(
+            target.record.id,
+            changedFields(writable, target.record),
+          )
+        : api.createWorkstream({
+            project_id: values.project_id,
+            ...writable,
+          });
+    }
     case "task": {
       const story_points = Number(values.story_points);
       if (
@@ -141,6 +179,33 @@ export async function saveResource(
       )
         throw new Error(
           "Story points must be a number from 0 up to (but not including) 1,000,000,000.",
+        );
+      const selectedWorkstream = values.workstream_id
+        ? workstreams.find(
+            (workstream) =>
+              workstream.id === values.workstream_id &&
+              workstream.project_id === values.project_id,
+          )
+        : undefined;
+      if (values.workstream_id && !selectedWorkstream)
+        throw new Error(
+          "Choose a workstream belonging to this task's project, or no workstream.",
+        );
+      if (
+        selectedWorkstream?.status === "archived" &&
+        target.record?.workstream_id !== selectedWorkstream.id
+      )
+        throw new Error("Archived workstreams cannot receive new assignments.");
+      const selectedSprint = values.sprint_id
+        ? sprints.find((sprint) => sprint.id === values.sprint_id)
+        : undefined;
+      if (
+        selectedSprint?.workstream_id &&
+        selectedWorkstream &&
+        selectedSprint.workstream_id !== selectedWorkstream.id
+      )
+        throw new Error(
+          "A task and its sprint cannot use different workstreams.",
         );
       if (
         values.sprint_id &&
@@ -161,6 +226,7 @@ export async function saveResource(
       const input: api.CreateTaskInput = {
         project_id: values.project_id,
         sprint_id: values.sprint_id || null,
+        workstream_id: values.workstream_id || null,
         title: name(values.title),
         description: values.description,
         status: choice(values.status, statuses.task),
@@ -210,6 +276,8 @@ export async function removeResource(target: EditorTarget) {
   switch (target.kind) {
     case "project":
       return api.deleteProject(target.record.id);
+    case "workstream":
+      throw new Error("Archive workstreams instead of deleting them here.");
     case "sprint":
       return api.deleteSprint(target.record.id);
     case "task":
@@ -219,14 +287,23 @@ export async function removeResource(target: EditorTarget) {
   }
 }
 
+export async function setWorkstreamArchived(
+  target: Extract<EditorTarget, { kind: "workstream" }>,
+) {
+  if (!target.record) throw new Error("Select a saved workstream first.");
+  return api.updateWorkstream(target.record.id, {
+    status: target.record.status === "active" ? "archived" : "active",
+  });
+}
+
 export function projectWriteError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 409)
-      return "This change conflicts with dependent records. Move or remove dependents explicitly first (sprints, tasks, or milestones for a project; tasks for a sprint). Nothing was cascade-deleted.";
+      return "This change conflicts with dependents. Check Workstream, Sprint and Task assignments before trying again. Nothing was cascade-deleted or changed automatically.";
     if (error.status === 422)
-      return "The backend rejected these values. Check dates, required fields, category, and project/sprint relationships.";
+      return "The backend rejected these values. Check dates, required fields, category, and Project/Workstream/Sprint relationships.";
     if (error.status === 404)
-      return "This record or a related project/sprint no longer exists. Close the form and refresh before trying again.";
+      return "This record or a related Project, Workstream or Sprint no longer exists. Close the form and refresh before trying again.";
     if (
       error.status === 503 ||
       error.code === "network" ||

@@ -5,10 +5,17 @@ import {
   projectWriteError,
   removeResource,
   saveResource,
+  setWorkstreamArchived,
   type EditorTarget,
 } from "./project-editor.ts";
 import { ApiError } from "@/lib/api/errors.ts";
-import { project, sprint, task, milestone } from "./__tests__/fixtures.ts";
+import {
+  project,
+  sprint,
+  task,
+  milestone,
+  workstream,
+} from "./__tests__/fixtures.ts";
 import { summarizeProjects } from "./projects-data.ts";
 
 const fetchMock = vi.fn<typeof fetch>();
@@ -62,6 +69,99 @@ describe("Projects editor payloads (mocked HTTP)", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body))).toEqual({
       [key]: "Edited",
     });
+  });
+  it("creates, edits and archives a Workstream with the confirmed contract", async () => {
+    const target = { kind: "workstream", record: workstream } as const;
+    await saveResource(
+      { kind: "workstream" },
+      initialDraft(target),
+      [],
+      [workstream],
+    );
+    await saveResource(
+      target,
+      { ...initialDraft(target), description: "Updated ownership" },
+      [],
+      [workstream],
+    );
+    await setWorkstreamArchived(target);
+    expect(
+      fetchMock.mock.calls.map(([url, init]) => ({
+        url,
+        method: init?.method,
+        body: JSON.parse(String(init?.body)),
+      })),
+    ).toEqual([
+      {
+        url: "http://localhost:8001/api/v1/projects/workstreams",
+        method: "POST",
+        body: {
+          project_id: "p1",
+          name: "Frontend",
+          description: "Persistent interface ownership",
+          status: "active",
+        },
+      },
+      {
+        url: "http://localhost:8001/api/v1/projects/workstreams/w1",
+        method: "PATCH",
+        body: { description: "Updated ownership" },
+      },
+      {
+        url: "http://localhost:8001/api/v1/projects/workstreams/w1",
+        method: "PATCH",
+        body: { status: "archived" },
+      },
+    ]);
+  });
+  it("assigns and explicitly unassigns Tasks and Sprints", async () => {
+    await saveResource(
+      { kind: "task", record: task },
+      { ...initialDraft({ kind: "task", record: task }), workstream_id: "w1" },
+      [sprint],
+      [workstream],
+    );
+    await saveResource(
+      { kind: "sprint", record: { ...sprint, workstream_id: "w1" } },
+      {
+        ...initialDraft({
+          kind: "sprint",
+          record: { ...sprint, workstream_id: "w1" },
+        }),
+        workstream_id: "",
+      },
+      [sprint],
+      [workstream],
+    );
+    expect(
+      fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body))),
+    ).toEqual([{ workstream_id: "w1" }, { workstream_id: null }]);
+  });
+  it("rejects archived or mismatched Workstream assignment before sending", async () => {
+    const archived = { ...workstream, status: "archived" as const };
+    await expect(
+      saveResource(
+        { kind: "task", record: task },
+        {
+          ...initialDraft({ kind: "task", record: task }),
+          workstream_id: archived.id,
+        },
+        [sprint],
+        [archived],
+      ),
+    ).rejects.toThrow(/Archived workstreams/);
+    await expect(
+      saveResource(
+        { kind: "task", record: task },
+        {
+          ...initialDraft({ kind: "task", record: task }),
+          workstream_id: "w2",
+        },
+        [{ ...sprint, workstream_id: "w1" }],
+        [{ ...workstream, id: "w2" }],
+      ),
+    ).rejects.toThrow(/different workstreams/);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
   it.each(targets)(
     "deletes $kind without cascading or a request body",
@@ -251,6 +351,7 @@ describe("Projects editor payloads (mocked HTTP)", () => {
     expect(
       summarizeProjects({
         projects: [project],
+        workstreams: [],
         sprints: [sprint, { ...sprint, id: "s2" }],
         tasks: [
           task,

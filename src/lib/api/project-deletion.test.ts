@@ -11,6 +11,7 @@ const identity = { id: "project/1", name: " ILTO V1 " };
 const deleted = {
   tasks: 2,
   sprints: 1,
+  workstreams: 1,
   milestones: 1,
   repositories: 1,
   focus_sessions: 2,

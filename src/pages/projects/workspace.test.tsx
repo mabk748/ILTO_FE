@@ -17,7 +17,13 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ProjectWorkspace from "./workspace.tsx";
 import ProjectsPage from "./page.tsx";
-import { project, sprint, task, milestone } from "./__tests__/fixtures.ts";
+import {
+  project,
+  sprint,
+  task,
+  milestone,
+  workstream,
+} from "./__tests__/fixtures.ts";
 import type { ProjectsData } from "./projects-data.ts";
 
 // Mock transport only (and chart layout unsupported by jsdom). No real server writes.
@@ -88,6 +94,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   data = {
     projects: [{ ...project }, { ...project, id: "p2", name: "Project Beta" }],
+    workstreams: [],
     sprints: [
       { ...sprint },
       {
@@ -120,11 +127,13 @@ beforeEach(() => {
     const path = parsed.pathname.replace("/api/v1/projects", "");
     const collection = path.startsWith("/tasks")
       ? data.tasks
-      : path.startsWith("/sprints")
-        ? data.sprints
-        : path.startsWith("/milestones")
-          ? data.milestones
-          : data.projects;
+      : path.startsWith("/workstreams")
+        ? data.workstreams
+        : path.startsWith("/sprints")
+          ? data.sprints
+          : path.startsWith("/milestones")
+            ? data.milestones
+            : data.projects;
     if (init?.method !== "GET") {
       if (rejectWrites)
         return Response.json({ detail: "Dependents exist" }, { status: 409 });
@@ -192,6 +201,12 @@ beforeEach(() => {
           updated_at: project.updated_at,
         },
       ]);
+    if (path === "/workstreams")
+      return Response.json(
+        data.workstreams.filter(
+          (item) => item.project_id === parsed.searchParams.get("project_id"),
+        ),
+      );
     if (["/tasks", "/sprints", "/milestones"].includes(path))
       return Response.json(collection);
     throw new Error(`Unexpected mocked request: ${url}`);
@@ -203,6 +218,79 @@ afterEach(() => {
 });
 
 describe("Project workspace with mocked backend", () => {
+  it("manages Workstreams inside EXPLORE without adding an execution-area tab", async () => {
+    data.workstreams = [{ ...workstream }];
+    data.tasks[0].workstream_id = workstream.id;
+    data.sprints[0].workstream_id = workstream.id;
+    setup("/projects/p1/explore");
+
+    expect(
+      await screen.findByRole("heading", { name: "Workstreams" }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/Persistent areas of responsibility/),
+    ).toBeVisible();
+    expect(screen.getByText("1 Task · 1 Sprint")).toBeVisible();
+    expect(
+      within(
+        screen.getByRole("navigation", { name: "Project workspace" }),
+      ).queryByRole("link", { name: "Workstreams" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Archive workstream: Frontend" }),
+    );
+    expect(
+      screen.getByText(/Existing Task and Sprint assignments stay in place/),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Confirm archive" }));
+    await waitFor(() => expect(data.workstreams[0].status).toBe("archived"));
+    expect(data.tasks[0].workstream_id).toBe(workstream.id);
+  });
+
+  it("opens a Workstream-filtered board while preserving Project context and history", async () => {
+    data.workstreams = [{ ...workstream }];
+    data.tasks[0].workstream_id = workstream.id;
+    data.tasks.push({
+      ...task,
+      id: "unassigned",
+      sprint_id: null,
+      workstream_id: null,
+      title: "Unassigned Task",
+    });
+    setup("/projects/p1/explore?view=overview");
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "View tasks in Frontend" }),
+    );
+    await waitFor(() =>
+      expect(location()).toContain(
+        "/projects/p1/explore?view=board&workstream=w1",
+      ),
+    );
+    expect(await screen.findByText("Task Alpha")).toBeVisible();
+    expect(screen.queryByText("Unassigned Task")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Project Alpha" }),
+    ).toBeVisible();
+
+    fireEvent.click(screen.getByRole("button", { name: "History back" }));
+    await waitFor(() =>
+      expect(location()).toBe("/projects/p1/explore?view=overview"),
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "View unassigned Tasks" }),
+    );
+    await waitFor(() =>
+      expect(location()).toContain(
+        "/projects/p1/explore?view=board&workstream=__no_workstream__",
+      ),
+    );
+    expect(await screen.findByText("Unassigned Task")).toBeVisible();
+    expect(screen.queryByText("Task Alpha")).not.toBeInTheDocument();
+  });
+
   it("renders scoped dashboard metrics for multiple active Sprints and drills down with history", async () => {
     data.sprints.push({ ...sprint, id: "s3", name: "Sprint Three" });
     data.tasks = [

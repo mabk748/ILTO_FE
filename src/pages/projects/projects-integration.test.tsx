@@ -15,8 +15,15 @@ import GanttChart from "./_components/GanttChart.tsx";
 import ProjectList from "./_components/ProjectList.tsx";
 import ResourceControls from "./_components/ResourceControls.tsx";
 import { summarizeProjects, useProjectsData } from "./projects-data.ts";
-import { project, sprint, task, milestone } from "./__tests__/fixtures.ts";
+import {
+  project,
+  sprint,
+  task,
+  milestone,
+  workstream,
+} from "./__tests__/fixtures.ts";
 import type { EditorTarget } from "./project-editor.ts";
+import type { Workstream } from "@/lib/api/types.ts";
 import ProjectsPage from "./page.tsx";
 
 // Only replace the chart rendering: prove its props still come from backend velocity.
@@ -28,6 +35,7 @@ vi.mock("./_components/VelocityChart.tsx", () => ({
 const fetchMock = vi.fn<typeof fetch>();
 let data: {
   projects: (typeof project)[];
+  workstreams: Workstream[];
   sprints: (typeof sprint)[];
   tasks: (typeof task)[];
   milestones: (typeof milestone)[];
@@ -77,6 +85,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   data = {
     projects: [{ ...project }],
+    workstreams: [],
     sprints: [{ ...sprint }],
     tasks: [{ ...task }],
     milestones: [{ ...milestone }],
@@ -91,11 +100,13 @@ beforeEach(() => {
       const input = init?.body ? JSON.parse(String(init.body)) : {};
       const collection = path.startsWith("/tasks")
         ? data.tasks
-        : path.startsWith("/sprints")
-          ? data.sprints
-          : path.startsWith("/milestones")
-            ? data.milestones
-            : data.projects;
+        : path.startsWith("/workstreams")
+          ? data.workstreams
+          : path.startsWith("/sprints")
+            ? data.sprints
+            : path.startsWith("/milestones")
+              ? data.milestones
+              : data.projects;
       if (init?.method === "PATCH") {
         Object.assign(collection[0], input);
         data.sprints[0].velocity = data.tasks
@@ -126,6 +137,7 @@ beforeEach(() => {
         total_pages: data.projects.length ? 1 : 0,
       });
     if (path === "/tasks") return Response.json(data.tasks);
+    if (path === "/workstreams") return Response.json(data.workstreams);
     if (path === "/sprints") return Response.json(data.sprints);
     if (path === "/milestones") return Response.json(data.milestones);
     throw new Error(`Unexpected mocked request: ${url}`);
@@ -137,6 +149,56 @@ afterEach(() => {
 });
 
 describe("Projects UI with a mocked backend", () => {
+  it("assigns a Task to a Workstream without clearing FocusSession state", async () => {
+    data.workstreams = [{ ...workstream }];
+    const { client } = setup(
+      <ResourceControls target={{ kind: "task", record: data.tasks[0] }} />,
+    );
+    const focusKey = ["projects", "focus", project.id] as const;
+    client.setQueryData(focusKey, { marker: "authoritative focus" });
+
+    const edit = await screen.findByRole("button", {
+      name: "Edit task: Task Alpha",
+    });
+    await waitFor(() => expect(edit).toBeEnabled());
+    fireEvent.click(edit);
+    fireEvent.change(
+      await screen.findByRole("combobox", { name: "Workstream (optional)" }),
+      { target: { value: workstream.id } },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(data.tasks[0].workstream_id).toBe(workstream.id),
+    );
+    const request = writes().at(-1)?.[1];
+    expect(JSON.parse(String(request?.body))).toEqual({
+      workstream_id: workstream.id,
+    });
+    expect(client.getQueryData(focusKey)).toEqual({
+      marker: "authoritative focus",
+    });
+  });
+
+  it("keeps an archived Workstream visible only for its existing assignment", async () => {
+    data.workstreams = [{ ...workstream, status: "archived" }];
+    data.tasks[0].workstream_id = workstream.id;
+    setup(
+      <ResourceControls target={{ kind: "task", record: data.tasks[0] }} />,
+    );
+
+    const edit = await screen.findByRole("button", {
+      name: "Edit task: Task Alpha",
+    });
+    await waitFor(() => expect(edit).toBeEnabled());
+    fireEvent.click(edit);
+    expect(
+      await screen.findByRole("option", {
+        name: "Frontend (archived — current)",
+      }),
+    ).toBeVisible();
+  });
+
   it("labels task cards by project and filters by any project or all projects", async () => {
     data.projects.push({ ...project, id: "p2", name: "Project Beta" });
     data.tasks.push({
@@ -666,7 +728,7 @@ describe("Projects UI with a mocked backend", () => {
       </>,
     );
     await screen.findByText("Open tasks: 1");
-    expect(fetchMock).toHaveBeenCalledTimes(4); // Shared reads, not one request set per view.
+    expect(fetchMock).toHaveBeenCalledTimes(5); // Shared reads, including one Project-scoped Workstream list.
     fireEvent.change(
       screen.getByRole("combobox", { name: "Status for Task Alpha" }),
       { target: { value: "done" } },
@@ -685,6 +747,7 @@ describe("Projects UI with a mocked backend", () => {
       "/projects?",
       "/projects/tasks",
       "/projects/sprints",
+      "/projects/workstreams?",
       "/projects/milestones",
     ]) {
       expect(
@@ -726,7 +789,7 @@ describe("Projects UI with a mocked backend", () => {
       screen.getByRole("button", { name: "Edit project: Renamed project" }),
     ).toHaveFocus();
   });
-  it.each(["project", "sprint", "task", "milestone"] as const)(
+  it.each(["project", "workstream", "sprint", "task", "milestone"] as const)(
     "creates a %s through the accessible form and reloads affected data",
     async (kind) => {
       setup(<ResourceControls target={{ kind }} />);
@@ -740,7 +803,9 @@ describe("Projects UI with a mocked backend", () => {
         });
       fireEvent.change(
         dialog.getByLabelText(
-          kind === "project" || kind === "sprint" ? "Name" : "Title",
+          kind === "project" || kind === "sprint" || kind === "workstream"
+            ? "Name"
+            : "Title",
         ),
         { target: { value: "Created item" } },
       );
@@ -764,7 +829,7 @@ describe("Projects UI with a mocked backend", () => {
       expect(writes()[0][1]?.method).toBe("POST");
       expect(
         fetchMock.mock.calls.filter(([, init]) => init?.method === "GET"),
-      ).toHaveLength(8);
+      ).toHaveLength(kind === "project" ? 11 : 10);
       if (kind === "task")
         expect(JSON.parse(String(writes()[0][1]?.body))).toMatchObject({
           sprint_id: null,
@@ -863,7 +928,13 @@ describe("Projects UI with a mocked backend", () => {
     });
   });
   it("preserves genuine empty states with no sample records or writes", async () => {
-    data = { projects: [], sprints: [], tasks: [], milestones: [] };
+    data = {
+      projects: [],
+      workstreams: [],
+      sprints: [],
+      tasks: [],
+      milestones: [],
+    };
     setup(
       <>
         <ProjectList />

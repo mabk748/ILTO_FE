@@ -16,6 +16,7 @@ import {
 } from "../task-model.ts";
 import {
   NO_SPRINT_FILTER,
+  NO_WORKSTREAM_FILTER,
   UNASSIGNED_FILTER,
   useProjectsFilters,
 } from "../project-filters.ts";
@@ -45,6 +46,7 @@ const PRIORITY_CLASSES: Record<Priority, string> = {
 const BOARD_FILTER_KEYS = [
   "project",
   "sprint",
+  "workstream",
   "task_status",
   "priority",
   "category",
@@ -54,10 +56,12 @@ function TaskCard({
   task,
   projectName,
   sprintName,
+  workstreamName,
 }: {
   task: Task;
   projectName: string | undefined;
   sprintName: string;
+  workstreamName: string;
 }) {
   const mutation = useProjectsMutation((status: TaskStatus) =>
     updateTask(task.id, { status }),
@@ -78,6 +82,12 @@ function TaskCard({
       </p>
       <p className="truncate text-xs text-muted-foreground" title={sprintName}>
         {`Sprint: ${sprintName}`}
+      </p>
+      <p
+        className="truncate text-xs text-muted-foreground"
+        title={workstreamName}
+      >
+        {`Workstream: ${workstreamName}`}
       </p>
       <label className="block text-xs space-y-1">
         <span>Status</span>
@@ -159,6 +169,7 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
   );
   const projects = data?.projects ?? [];
   const sprints = data?.sprints ?? [];
+  const workstreams = data?.workstreams ?? [];
   const filterState = useProjectsFilters(data);
   const { filters } = filterState;
 
@@ -182,11 +193,19 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
   const sprintsById = new Map(
     sprints.map((sprint) => [sprint.id, sprint.name]),
   );
+  const workstreamsById = new Map(
+    workstreams.map((workstream) => [workstream.id, workstream.name]),
+  );
   const selectedProjects = new Set(filters.projectIds);
   const visibleSprints = sprints.filter(
     (sprint) =>
       filters.projectIds.length === 0 ||
       selectedProjects.has(sprint.project_id),
+  );
+  const visibleWorkstreams = workstreams.filter(
+    (workstream) =>
+      filters.projectIds.length === 0 ||
+      selectedProjects.has(workstream.project_id),
   );
   const assignees = Array.from(
     new Set(
@@ -197,6 +216,7 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
   ).sort((left, right) => left.localeCompare(right));
   const selectedProjectIds = new Set(filters.projectIds);
   const selectedSprintIds = new Set(filters.sprintIds);
+  const selectedWorkstreamIds = new Set(filters.workstreamIds);
   const visibleTasks = tasks.filter((task) => {
     const projectMatches =
       filters.projectIds.length === 0 ||
@@ -204,6 +224,10 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
     const sprintFilterId = task.sprint_id ?? NO_SPRINT_FILTER;
     const sprintMatches =
       filters.sprintIds.length === 0 || selectedSprintIds.has(sprintFilterId);
+    const workstreamFilterId = task.workstream_id ?? NO_WORKSTREAM_FILTER;
+    const workstreamMatches =
+      filters.workstreamIds.length === 0 ||
+      selectedWorkstreamIds.has(workstreamFilterId);
     const statusMatches =
       filters.taskStatus === null ||
       (filters.taskStatus === "not_done"
@@ -221,6 +245,7 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
         : task.assignee === filters.taskAssignee);
     return (
       projectMatches &&
+      workstreamMatches &&
       sprintMatches &&
       statusMatches &&
       priorityMatches &&
@@ -239,9 +264,19 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
     })),
     { value: NO_SPRINT_FILTER, label: "No sprint" },
   ];
+  const workstreamOptions = [
+    ...visibleWorkstreams.map((workstream) => ({
+      value: workstream.id,
+      label: `${workstream.name}${workstream.status === "archived" ? " (archived)" : ""} (${projectsById.get(workstream.project_id) ?? "Project unavailable"})`,
+    })),
+    { value: NO_WORKSTREAM_FILTER, label: "No workstream" },
+  ];
   const activeLabels = [
     filters.projectIds.length ? `Projects: ${filters.projectIds.length}` : null,
     filters.sprintIds.length ? `Sprints: ${filters.sprintIds.length}` : null,
+    filters.workstreamIds.length
+      ? `Workstreams: ${filters.workstreamIds.length}`
+      : null,
     filters.taskStatus
       ? `Status: ${filters.taskStatus.replaceAll("_", " ")}`
       : null,
@@ -274,6 +309,13 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
           values={filters.projectIds}
           options={projectOptions}
           onChange={filterState.setProjectIds}
+        />
+        <FilterMultiSelect
+          label="Filter tasks by workstream"
+          allLabel="All workstreams"
+          values={filters.workstreamIds}
+          options={workstreamOptions}
+          onChange={(values) => filterState.setMulti("workstream", values)}
         />
         <FilterMultiSelect
           label="Filter tasks by sprint"
@@ -363,6 +405,12 @@ export default function KanbanBoard({ taskId }: { taskId?: string } = {}) {
                           ? "No sprint"
                           : (sprintsById.get(task.sprint_id) ??
                             "Sprint unavailable")
+                      }
+                      workstreamName={
+                        task.workstream_id === null
+                          ? "No workstream"
+                          : (workstreamsById.get(task.workstream_id) ??
+                            "Workstream unavailable")
                       }
                     />
                   ))}

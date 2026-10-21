@@ -16,15 +16,19 @@ import { cn } from "@/lib/utils.ts";
 import { ChevronDown, ChevronRight, Zap } from "lucide-react";
 import VelocityChart from "./VelocityChart.tsx";
 import LoadError from "@/components/LoadError.tsx";
-import { useProjectsFilters } from "../project-filters.ts";
 import {
+  NO_WORKSTREAM_FILTER,
+  useProjectsFilters,
+} from "../project-filters.ts";
+import {
+  FilterMultiSelect,
   FilterSelect,
   FilteredEmptyState,
   ProjectFilterBar,
   ProjectScopeFilter,
 } from "./ProjectFilterBar.tsx";
 
-const SPRINT_FILTER_KEYS = ["project", "sprint_status"] as const;
+const SPRINT_FILTER_KEYS = ["project", "workstream", "sprint_status"] as const;
 const STATUS_CLASSES: Record<SprintStatus, string> = {
   planned: "bg-muted text-muted-foreground border-border",
   active: "bg-primary/20 text-primary border-primary/30",
@@ -37,7 +41,13 @@ interface SprintWithTasks extends Sprint {
   pointsTotal: number;
 }
 
-function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
+function SprintRow({
+  sprint,
+  workstreamName,
+}: {
+  sprint: SprintWithTasks;
+  workstreamName: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const progress =
     sprint.pointsTotal > 0
@@ -71,6 +81,9 @@ function SprintRow({ sprint }: { sprint: SprintWithTasks }) {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{sprint.goal}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Workstream: {workstreamName}
+          </p>
         </div>
         <div className="hidden sm:flex flex-col items-end gap-1 shrink-0">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -149,10 +162,13 @@ export default function SprintList() {
     };
   });
   const projectScope = new Set(filters.projectIds);
+  const workstreamScope = new Set(filters.workstreamIds);
   const sprints = allSprints.filter(
     (sprint) =>
       (filters.projectIds.length === 0 ||
         projectScope.has(sprint.project_id)) &&
+      (filters.workstreamIds.length === 0 ||
+        workstreamScope.has(sprint.workstream_id ?? NO_WORKSTREAM_FILTER)) &&
       (!filters.sprintStatus || sprint.status === filters.sprintStatus),
   );
 
@@ -174,8 +190,20 @@ export default function SprintList() {
   const projectsById = new Map(
     projects.map((project) => [project.id, project.name]),
   );
+  const workstreams = data?.workstreams ?? [];
+  const workstreamsById = new Map(
+    workstreams.map((workstream) => [workstream.id, workstream.name]),
+  );
+  const visibleWorkstreams = workstreams.filter(
+    (workstream) =>
+      filters.projectIds.length === 0 ||
+      projectScope.has(workstream.project_id),
+  );
   const activeLabels = [
     filters.projectIds.length ? `Projects: ${filters.projectIds.length}` : null,
+    filters.workstreamIds.length
+      ? `Workstreams: ${filters.workstreamIds.length}`
+      : null,
     filters.sprintStatus ? `Status: ${filters.sprintStatus}` : null,
   ].filter((value): value is string => value !== null);
   const clearFilters = () => filterState.clear(SPRINT_FILTER_KEYS);
@@ -214,6 +242,19 @@ export default function SprintList() {
           ]}
           onChange={(value) => filterState.setSingle("sprint_status", value)}
         />
+        <FilterMultiSelect
+          label="Filter sprints by workstream"
+          allLabel="All workstreams"
+          values={filters.workstreamIds}
+          options={[
+            ...visibleWorkstreams.map((workstream) => ({
+              value: workstream.id,
+              label: `${workstream.name}${workstream.status === "archived" ? " (archived)" : ""}`,
+            })),
+            { value: NO_WORKSTREAM_FILTER, label: "No workstream" },
+          ]}
+          onChange={(values) => filterState.setMulti("workstream", values)}
+        />
       </ProjectFilterBar>
       <div className="space-y-3">
         {allSprints.length === 0 && <p>No sprints yet.</p>}
@@ -225,7 +266,15 @@ export default function SprintList() {
             <p className="px-1 text-xs text-muted-foreground">
               Project: {projectsById.get(s.project_id) ?? "Project unavailable"}
             </p>
-            <SprintRow sprint={s} />
+            <SprintRow
+              sprint={s}
+              workstreamName={
+                s.workstream_id === null
+                  ? "No workstream"
+                  : (workstreamsById.get(s.workstream_id) ??
+                    "Workstream unavailable")
+              }
+            />
           </div>
         ))}
       </div>

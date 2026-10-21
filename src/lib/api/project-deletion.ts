@@ -5,6 +5,7 @@ import { encodeId } from "./resource.ts";
 export interface ProjectDeletedCounts {
   tasks: number;
   sprints: number;
+  workstreams: number;
   milestones: number;
   repositories: number;
   focus_sessions: number;
@@ -65,6 +66,7 @@ function deletedCounts(value: unknown): boolean {
   return counts(value, [
     "tasks",
     "sprints",
+    "workstreams",
     "milestones",
     "repositories",
     "focus_sessions",

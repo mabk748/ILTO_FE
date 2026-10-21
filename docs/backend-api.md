@@ -142,28 +142,31 @@ blockers, transaction behavior, and final deleted/unlinked results belong to the
 backend. See the
 [deletion UX and error contract](projects-integration.md#normal-delete-versus-delete-project-and-contents).
 
-| Method | Path                                 | Frontend function           | Response                     |
-| ------ | ------------------------------------ | --------------------------- | ---------------------------- |
-| GET    | `/projects`                          | `getProjects`               | `PaginatedResponse<Project>` |
-| GET    | `/projects/:id`                      | `getProject`                | `Project \| null`            |
-| GET    | `/projects/sprints`                  | `getSprints`                | `Sprint[]`                   |
-| GET    | `/projects/tasks`                    | `getTasks`                  | `Task[]`                     |
-| GET    | `/projects/milestones`               | `getMilestones`             | `Milestone[]`                |
-| POST   | `/projects`                          | `createProject`             | `Project`                    |
-| PATCH  | `/projects/:id`                      | `updateProject`             | `Project`                    |
-| DELETE | `/projects/:id`                      | `deleteProject`             | `204 (no body)`              |
-| GET    | `/projects/:id/delete-impact`        | `getProjectDeleteImpact`    | `ProjectDeleteImpact`        |
-| POST   | `/projects/:id/delete-with-contents` | `deleteProjectWithContents` | `ProjectDeleteResult`        |
-| POST   | `/projects/sprints`                  | `createSprint`              | `Sprint`                     |
-| PATCH  | `/projects/sprints/:id`              | `updateSprint`              | `Sprint`                     |
-| DELETE | `/projects/sprints/:id`              | `deleteSprint`              | `204 (no body)`              |
-| POST   | `/projects/tasks`                    | `createTask`                | `Task`                       |
-| PATCH  | `/projects/tasks/:id`                | `updateTask`                | `Task`                       |
-| DELETE | `/projects/tasks/:id`                | `deleteTask`                | `204 (no body)`              |
-| POST   | `/projects/milestones`               | `createMilestone`           | `Milestone`                  |
-| PATCH  | `/projects/milestones/:id`           | `updateMilestone`           | `Milestone`                  |
-| DELETE | `/projects/milestones/:id`           | `deleteMilestone`           | `204 (no body)`              |
-| POST   | `/projects/import`                   | `importProjects`            | `ProjectImportResult`        |
+| Method | Path                                   | Frontend function           | Response                     |
+| ------ | -------------------------------------- | --------------------------- | ---------------------------- |
+| GET    | `/projects`                            | `getProjects`               | `PaginatedResponse<Project>` |
+| GET    | `/projects/:id`                        | `getProject`                | `Project \| null`            |
+| GET    | `/projects/sprints`                    | `getSprints`                | `Sprint[]`                   |
+| GET    | `/projects/workstreams?project_id=:id` | `getWorkstreams`            | `Workstream[]`               |
+| GET    | `/projects/tasks`                      | `getTasks`                  | `Task[]`                     |
+| GET    | `/projects/milestones`                 | `getMilestones`             | `Milestone[]`                |
+| POST   | `/projects`                            | `createProject`             | `Project`                    |
+| PATCH  | `/projects/:id`                        | `updateProject`             | `Project`                    |
+| DELETE | `/projects/:id`                        | `deleteProject`             | `204 (no body)`              |
+| GET    | `/projects/:id/delete-impact`          | `getProjectDeleteImpact`    | `ProjectDeleteImpact`        |
+| POST   | `/projects/:id/delete-with-contents`   | `deleteProjectWithContents` | `ProjectDeleteResult`        |
+| POST   | `/projects/sprints`                    | `createSprint`              | `Sprint`                     |
+| PATCH  | `/projects/sprints/:id`                | `updateSprint`              | `Sprint`                     |
+| DELETE | `/projects/sprints/:id`                | `deleteSprint`              | `204 (no body)`              |
+| POST   | `/projects/workstreams`                | `createWorkstream`          | `Workstream`                 |
+| PATCH  | `/projects/workstreams/:id`            | `updateWorkstream`          | `Workstream`                 |
+| POST   | `/projects/tasks`                      | `createTask`                | `Task`                       |
+| PATCH  | `/projects/tasks/:id`                  | `updateTask`                | `Task`                       |
+| DELETE | `/projects/tasks/:id`                  | `deleteTask`                | `204 (no body)`              |
+| POST   | `/projects/milestones`                 | `createMilestone`           | `Milestone`                  |
+| PATCH  | `/projects/milestones/:id`             | `updateMilestone`           | `Milestone`                  |
+| DELETE | `/projects/milestones/:id`             | `deleteMilestone`           | `204 (no body)`              |
+| POST   | `/projects/import`                     | `importProjects`            | `ProjectImportResult`        |
 
 ### infrastructure
 

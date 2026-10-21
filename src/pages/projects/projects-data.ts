@@ -6,6 +6,7 @@ import {
   getMilestones,
   getSprints,
   getTasks,
+  getWorkstreams,
 } from "@/lib/api/projects.ts";
 
 /** All Projects views share this snapshot, including Gantt and edit selectors. */
@@ -19,7 +20,12 @@ export function useProjectsData() {
         getTasks(undefined, { signal }),
         getMilestones(undefined, { signal }),
       ]);
-      return { projects, sprints, tasks, milestones };
+      const workstreams = (
+        await Promise.all(
+          projects.map((project) => getWorkstreams(project.id, { signal })),
+        )
+      ).flat();
+      return { projects, workstreams, sprints, tasks, milestones };
     },
   });
 }
@@ -34,6 +40,9 @@ export function scopeProjectsData(
 ): ProjectsData {
   return {
     projects: data.projects.filter((project) => project.id === projectId),
+    workstreams: data.workstreams.filter(
+      (workstream) => workstream.project_id === projectId,
+    ),
     sprints: data.sprints.filter((sprint) => sprint.project_id === projectId),
     tasks: data.tasks.filter((task) => task.project_id === projectId),
     milestones: data.milestones.filter(

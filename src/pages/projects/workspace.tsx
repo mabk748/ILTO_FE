@@ -43,6 +43,7 @@ import SprintList from "./_components/SprintList.tsx";
 import MilestoneList from "./_components/MilestoneList.tsx";
 import GanttChart from "./_components/GanttChart.tsx";
 import ArchitectureView from "./_components/ArchitectureView.tsx";
+import WorkstreamPanel from "./_components/WorkstreamPanel.tsx";
 import "./workspace.css";
 
 const EXPLORE_VIEWS = [
@@ -306,6 +307,7 @@ function Explore() {
           />
         </div>
       </div>
+      <WorkstreamPanel data={data} />
       <Tabs
         value={view ?? ""}
         onValueChange={(value) => {

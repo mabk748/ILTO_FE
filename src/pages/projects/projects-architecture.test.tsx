@@ -102,6 +102,7 @@ beforeEach(() => {
       });
     }
     if (path === "/api/v1/projects/sprints") return Response.json([]);
+    if (path === "/api/v1/projects/workstreams") return Response.json([]);
     if (path === "/api/v1/projects/tasks") return Response.json([]);
     if (path === "/api/v1/projects/milestones") return Response.json([]);
 

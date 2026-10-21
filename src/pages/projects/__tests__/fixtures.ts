@@ -1,5 +1,11 @@
 // Mocked test fixtures only. Never imported by application code or seeded remotely.
-import type { Project, Sprint, Task, Milestone } from "@/lib/api/types.ts";
+import type {
+  Project,
+  Sprint,
+  Task,
+  Milestone,
+  Workstream,
+} from "@/lib/api/types.ts";
 export const project: Project = {
   id: "p1",
   name: "Project Alpha",
@@ -14,6 +20,7 @@ export const project: Project = {
 export const sprint: Sprint = {
   id: "s1",
   project_id: "p1",
+  workstream_id: null,
   name: "Sprint Alpha",
   goal: "Goal",
   status: "active",
@@ -22,10 +29,20 @@ export const sprint: Sprint = {
   velocity: 0,
   created_at: "2026-09-01T10:00:00Z",
 };
+export const workstream: Workstream = {
+  id: "w1",
+  project_id: "p1",
+  name: "Frontend",
+  description: "Persistent interface ownership",
+  status: "active",
+  created_at: "2026-09-01T10:00:00Z",
+  updated_at: "2026-09-01T10:00:00Z",
+};
 export const task: Task = {
   id: "t1",
   project_id: "p1",
   sprint_id: "s1",
+  workstream_id: null,
   title: "Task Alpha",
   description: "Description",
   status: "todo",

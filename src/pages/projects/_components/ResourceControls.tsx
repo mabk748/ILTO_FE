@@ -24,6 +24,7 @@ import {
   projectWriteError,
   removeResource,
   saveResource,
+  setWorkstreamArchived,
   statuses,
   type EditorTarget,
 } from "../project-editor.ts";
@@ -39,7 +40,7 @@ export default function ResourceControls({
   autoOpen?: boolean;
   triggerVariant?: ComponentProps<typeof Button>["variant"];
 }) {
-  const [mode, setMode] = useState<"edit" | "delete" | null>(null);
+  const [mode, setMode] = useState<"edit" | "delete" | "archive" | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
   const openedAutomatically = useRef(false);
   const { data, isError, isPending } = useProjectsViewData();
@@ -77,7 +78,7 @@ export default function ResourceControls({
         >
           {target.record ? "Edit" : `Create ${target.kind}`}
         </Button>
-        {target.record && (
+        {target.record && target.kind !== "workstream" && (
           <Button
             size="sm"
             variant="outline"
@@ -88,6 +89,19 @@ export default function ResourceControls({
             }}
           >
             Delete
+          </Button>
+        )}
+        {target.kind === "workstream" && target.record && (
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={`${target.record.status === "active" ? "Archive" : "Reactivate"} workstream: ${label}`}
+            onClick={(event) => {
+              trigger.current = event.currentTarget;
+              setMode("archive");
+            }}
+          >
+            {target.record.status === "active" ? "Archive" : "Reactivate"}
           </Button>
         )}
       </div>
@@ -118,7 +132,7 @@ function Editor({
   restoreFocus,
 }: {
   target: EditorTarget;
-  mode: "edit" | "delete";
+  mode: "edit" | "delete" | "archive";
   onClose: () => void;
   restoreFocus: () => void;
 }) {
@@ -137,6 +151,11 @@ function Editor({
   const mutation = useProjectsMutation(
     async () => {
       if (mode === "delete") return removeResource(target);
+      if (mode === "archive") {
+        if (target.kind !== "workstream")
+          throw new Error("Only Workstreams can be archived here.");
+        return setWorkstreamArchived(target);
+      }
       if (!data || isError)
         throw new Error("Refresh Projects data before saving.");
       if (
@@ -144,7 +163,7 @@ function Editor({
         !data.projects.some((p) => p.id === values.project_id)
       )
         throw new Error("Choose an existing project.");
-      return saveResource(target, values, data.sprints);
+      return saveResource(target, values, data.sprints, data.workstreams);
     },
     { invalidateHorizon: target.kind === "milestone" },
   );
@@ -152,8 +171,9 @@ function Editor({
     setValues((previous) => ({
       ...previous,
       [key]: value,
-      ...(key === "project_id" && target.kind === "task"
-        ? { sprint_id: "" }
+      ...(key === "project_id" &&
+      (target.kind === "task" || target.kind === "sprint")
+        ? { sprint_id: "", workstream_id: "" }
         : {}),
     }));
   const field = (
@@ -207,6 +227,13 @@ function Editor({
   const recordName =
     target.record &&
     ("name" in target.record ? target.record.name : target.record.title);
+  const changingWorkstreamStatus =
+    mode === "archive" && target.kind === "workstream" && target.record;
+  const actionLabel = changingWorkstreamStatus
+    ? changingWorkstreamStatus.status === "active"
+      ? "Archive"
+      : "Reactivate"
+    : null;
   return (
     <DialogContent
       showCloseButton={!mutation.isPending}
@@ -224,13 +251,22 @@ function Editor({
     >
       <DialogHeader>
         <DialogTitle>
-          {mode === "delete" ? "Delete" : target.record ? "Edit" : "Create"}{" "}
+          {actionLabel ??
+            (mode === "delete"
+              ? "Delete"
+              : target.record
+                ? "Edit"
+                : "Create")}{" "}
           {target.kind}
         </DialogTitle>
         <DialogDescription>
           {mode === "delete"
             ? `Delete “${recordName}”? This cannot be undone. Dependents are never deleted automatically.`
-            : "Changes are saved only after confirmation from the backend."}
+            : changingWorkstreamStatus
+              ? changingWorkstreamStatus.status === "active"
+                ? `Archive “${recordName}”? Existing Task and Sprint assignments stay in place, but no new records can be assigned until it is reactivated.`
+                : `Reactivate “${recordName}”? It will become available for new Task and Sprint assignments.`
+              : "Changes are saved only after confirmation from the backend."}
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={submit} className="space-y-4">
@@ -238,6 +274,7 @@ function Editor({
           {mode === "edit" && (
             <>
               {target.kind !== "project" &&
+                !(target.kind === "workstream" && target.record) &&
                 select("project_id", "Project", [
                   { value: "", label: "Choose a project" },
                   ...(data?.projects ?? []).map((p) => ({
@@ -246,10 +283,14 @@ function Editor({
                   })),
                 ])}
               {field(
-                target.kind === "project" || target.kind === "sprint"
+                target.kind === "project" ||
+                  target.kind === "sprint" ||
+                  target.kind === "workstream"
                   ? "name"
                   : "title",
-                target.kind === "project" || target.kind === "sprint"
+                target.kind === "project" ||
+                  target.kind === "sprint" ||
+                  target.kind === "workstream"
                   ? "Name"
                   : "Title",
                 "text",
@@ -274,6 +315,7 @@ function Editor({
                 />
               </div>
               {target.kind !== "milestone" &&
+                target.kind !== "workstream" &&
                 select(
                   "status",
                   "Status",
@@ -281,6 +323,26 @@ function Editor({
                     value,
                     label: value.replaceAll("_", " "),
                   })),
+                )}
+              {(target.kind === "sprint" || target.kind === "task") &&
+                select(
+                  "workstream_id",
+                  "Workstream (optional)",
+                  [
+                    { value: "", label: "No workstream" },
+                    ...(data?.workstreams ?? [])
+                      .filter(
+                        (workstream) =>
+                          workstream.project_id === values.project_id &&
+                          (workstream.status === "active" ||
+                            workstream.id === target.record?.workstream_id),
+                      )
+                      .map((workstream) => ({
+                        value: workstream.id,
+                        label: `${workstream.name}${workstream.status === "archived" ? " (archived — current)" : ""}`,
+                      })),
+                  ],
+                  false,
                 )}
               {(target.kind === "project" || target.kind === "task") &&
                 select(
@@ -367,6 +429,12 @@ function Editor({
                   task points.
                 </p>
               )}
+              {target.kind === "workstream" && (
+                <p className="text-xs text-muted-foreground">
+                  Workstreams are persistent areas of responsibility. Sprints
+                  remain separate, time-bounded delivery cycles.
+                </p>
+              )}
             </>
           )}
           {mutation.error && (
@@ -386,14 +454,22 @@ function Editor({
             </Button>
             <Button
               type="submit"
-              variant={mode === "delete" ? "destructive" : "default"}
+              variant={
+                mode === "delete" ||
+                (changingWorkstreamStatus &&
+                  changingWorkstreamStatus.status === "active")
+                  ? "destructive"
+                  : "default"
+              }
               disabled={mode === "edit" && (isError || isPending)}
             >
               {mutation.isPending
                 ? "Saving…"
                 : mode === "delete"
                   ? "Confirm delete"
-                  : "Save"}
+                  : actionLabel
+                    ? `Confirm ${actionLabel.toLowerCase()}`
+                    : "Save"}
             </Button>
           </div>
         </fieldset>

@@ -20,6 +20,7 @@ import type {
   TaskCategory,
   Milestone,
   ProjectRepository,
+  Workstream,
   PaginatedResponse,
 } from "./types.ts";
 
@@ -60,10 +61,24 @@ export function getProject(
 export function getSprints(
   projectId?: string,
   options: ApiRequestOptions = {},
+  workstreamId?: string,
 ): Promise<Sprint[]> {
   return getArray<Sprint>(`/projects/sprints`, {
     ...options,
-    query: { ...options.query, ...{ project_id: projectId } },
+    query: {
+      ...options.query,
+      ...{ project_id: projectId, workstream_id: workstreamId },
+    },
+  });
+}
+
+export function getWorkstreams(
+  projectId: string,
+  options: ApiRequestOptions = {},
+): Promise<Workstream[]> {
+  return getArray<Workstream>(`/projects/workstreams`, {
+    ...options,
+    query: { ...options.query, project_id: projectId },
   });
 }
 
@@ -72,6 +87,7 @@ export function getTasks(
     sprintId?: string;
     projectId?: string;
     status?: Task["status"];
+    workstreamId?: string;
   } = {},
   options: ApiRequestOptions = {},
 ): Promise<Task[]> {
@@ -83,6 +99,7 @@ export function getTasks(
         sprint_id: filters.sprintId,
         project_id: filters.projectId,
         status: filters.status,
+        workstream_id: filters.workstreamId,
       },
     },
   });
@@ -126,7 +143,10 @@ export function deleteProject(
   return apiClient.delete(`/projects/${encodeId(id)}`, options);
 }
 
-export type CreateSprintInput = Omit<Sprint, "id" | "created_at" | "velocity">;
+export type CreateSprintInput = Omit<
+  Sprint,
+  "id" | "created_at" | "velocity" | "workstream_id"
+> & { workstream_id?: string | null };
 export type UpdateSprintInput = Partial<CreateSprintInput>;
 
 export function createSprint(
@@ -155,12 +175,45 @@ export function deleteSprint(
   return apiClient.delete(`/projects/sprints/${encodeId(id)}`, options);
 }
 
+export type CreateWorkstreamInput = Omit<
+  Workstream,
+  "id" | "created_at" | "updated_at"
+>;
+export type UpdateWorkstreamInput = Partial<
+  Pick<Workstream, "name" | "description" | "status">
+>;
+
+export function createWorkstream(
+  input: CreateWorkstreamInput,
+  options: ApiRequestOptions = {},
+): Promise<Workstream> {
+  return apiClient.post<Workstream>("/projects/workstreams", input, options);
+}
+
+export function updateWorkstream(
+  id: string,
+  input: UpdateWorkstreamInput,
+  options: ApiRequestOptions = {},
+): Promise<Workstream> {
+  return apiClient.patch<Workstream>(
+    `/projects/workstreams/${encodeId(id)}`,
+    input,
+    options,
+  );
+}
+
 export type CreateTaskInput = Omit<
   Task,
-  "id" | "created_at" | "updated_at" | "category" | "acceptance_criteria"
+  | "id"
+  | "created_at"
+  | "updated_at"
+  | "category"
+  | "acceptance_criteria"
+  | "workstream_id"
 > & {
   category: TaskCategory;
   acceptance_criteria: string | null;
+  workstream_id?: string | null;
 };
 export type UpdateTaskInput = Partial<CreateTaskInput>;
 

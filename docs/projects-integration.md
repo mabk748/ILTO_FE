@@ -229,13 +229,17 @@ wraps on narrow screens, reports shown/total counts and active dimensions, and
 distinguishes no source data from no filtered matches.
 
 Task cards display project, sprint, category, priority, status, story points,
-and a compact criteria indicator; complete criteria remain in the editor.
+Workstream and a compact criteria indicator; complete criteria remain in the
+editor.
 Missing category values from pre-migration tasks render as `other`. Relationship
 labels use an honest unavailable fallback when a referenced record is absent
 from the current snapshot.
 
 The planning Projects tabs consume the shared `['projects', 'data']` query,
-loading all four planning collections and following project pagination.
+loading Projects, Workstreams, Sprints, Tasks and Milestones while following
+Project pagination. Because the backend requires `project_id` when listing
+Workstreams, the frontend performs one Workstream list request per visible
+Project and flattens those owner-scoped arrays into the shared snapshot.
 Successful planning writes invalidate Projects, Dashboard, and Intelligence
 queries. This refreshes summary, Kanban, sprint progress/velocity, milestones,
 and Gantt; inactive tabs see the new snapshot on opening. Architecture uses a
@@ -244,12 +248,18 @@ loaded only for the selected Project. Gantt no longer uses a separate
 effect-based fetch. Projects without an end date show a start-only marker rather
 than an invented 30-day duration.
 Long timeline ranges use bounded tick density. Legitimate empty states stay empty.
-The existing singular `project_id`, `sprint_id`, and `status` adapter parameters
-remain available for explicitly server-scoped reads, but these tab filters do not
-use them. No new endpoint query parameter, response field, or migration is needed
-because the frontend has the complete intentionally small collections; applying
-server filters to only one collection would also make relationship option lists
-incomplete.
+The existing singular `project_id`, `sprint_id`, `workstream_id`, and `status`
+adapter parameters remain available for explicitly server-scoped reads. Board
+and Sprint Workstream filters are URL-backed and operate on the complete shared
+snapshot so relationship option lists remain available. `workstream_id: null`
+is a legitimate unassigned state, not missing sample data.
+
+Workstreams are managed from a compact section inside Project EXPLORE rather
+than a new primary workspace area. Creating, editing, archiving and reactivating
+use the shared confirmation dialogs. Archiving preserves existing Task and
+Sprint references; archived Workstreams remain visible for those records but
+are excluded from new assignments. Sprints remain time-bounded delivery cycles
+and are never inferred from Workstream names.
 
 ## Normal Delete versus Delete Project and Contents
 
@@ -263,8 +273,9 @@ Projects tab, implementing the ILTO Backend 0.1.16 contract:
 1. Opening the dialog fetches `GET /projects/{id}/delete-impact` (200). It shows
    a loading state with no guessed counts. Failed or malformed previews keep the
    dialog open with deletion disabled and a manual refresh action.
-2. Backend `will_delete` counts describe Tasks, Sprints, Milestones, Repositories
-   and FocusSessions that will be permanently deleted with the Project. The
+2. Backend `will_delete` counts describe Tasks, Sprints, Workstreams,
+   Milestones, Repositories and FocusSessions that will be permanently deleted
+   with the Project. The
    separate `focus_sessions` summary groups active, paused and finished history.
    Finished history is explicitly called out as permanent; resume-note contents
    are never displayed. Backend `will_unlink` counts describe Learning goals,
